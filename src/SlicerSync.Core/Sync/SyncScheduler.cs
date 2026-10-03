@@ -3,7 +3,7 @@ using SlicerSync.Core.Logging;
 
 namespace SlicerSync.Core.Sync;
 
-/// <summary>Ruft die Sync-Aktion je nach Modus auf: Intervall, tägliche Uhrzeit oder nach Dateiänderung.</summary>
+/// <summary>Calls the sync action depending on the mode: interval, daily time or after a file change.</summary>
 public sealed class SyncScheduler : IDisposable
 {
     private static readonly TimeSpan Tick = TimeSpan.FromSeconds(30);
@@ -51,17 +51,17 @@ public sealed class SyncScheduler : IDisposable
                     break;
             }
         }
-        _log.Info($"Sync-Modus: {s.SyncMode}");
+        _log.Info(Loc.T($"Sync mode: {s.SyncMode}", $"Sync-Modus: {s.SyncMode}"));
     }
 
-    /// <summary>Nächster Zeitpunkt für den täglichen Sync (heute, falls noch nicht vorbei, sonst morgen).</summary>
+    /// <summary>Next time for the daily sync (today if not yet passed, otherwise tomorrow).</summary>
     public static DateTime NextDailyRun(DateTime now, TimeSpan time)
     {
         var today = now.Date + time;
         return today > now ? today : today.AddDays(1);
     }
 
-    /// <summary>Gibt an, ob ein Pfad im Repository eine Sync auslösen soll (.git-Interna nicht).</summary>
+    /// <summary>Whether a path in the repository should trigger a sync (.git internals don't).</summary>
     public static bool IsRelevantChange(string repoPath, string fullPath)
     {
         var rel = Path.GetRelativePath(repoPath, fullPath);
@@ -86,7 +86,7 @@ public sealed class SyncScheduler : IDisposable
     {
         if (!Directory.Exists(repoPath))
         {
-            _log.Warn($"Dateiüberwachung nicht möglich, Ordner fehlt: {repoPath}");
+            _log.Warn(Loc.T($"Cannot watch for changes, folder missing: {repoPath}", $"Dateiüberwachung nicht möglich, Ordner fehlt: {repoPath}"));
             return;
         }
 
@@ -108,7 +108,7 @@ public sealed class SyncScheduler : IDisposable
         _watcher.Renamed += (_, e) => onChange(_, e);
         _watcher.Error += (_, e) =>
         {
-            _log.Warn("Dateiüberwachung: Puffer übergelaufen, Sync wird ausgelöst.", e.GetException());
+            _log.Warn(Loc.T("File watcher buffer overflow, triggering a sync.", "Dateiüberwachung: Puffer übergelaufen, Sync wird ausgelöst."), e.GetException());
             _debouncer?.Trigger();
         };
         _watcher.EnableRaisingEvents = true;
@@ -117,7 +117,7 @@ public sealed class SyncScheduler : IDisposable
     private void RunSafe()
     {
         try { _sync(); }
-        catch (Exception ex) { _log.Error("Geplante Synchronisierung fehlgeschlagen", ex); }
+        catch (Exception ex) { _log.Error(Loc.T("Scheduled sync failed", "Geplante Synchronisierung fehlgeschlagen"), ex); }
     }
 
     private void StopCore()
@@ -140,7 +140,7 @@ public sealed class SyncScheduler : IDisposable
     }
 }
 
-/// <summary>Führt eine Aktion erst aus, wenn für <c>delay</c> kein weiterer Auslöser kam.</summary>
+/// <summary>Runs an action only once no further trigger arrived for <c>delay</c>.</summary>
 public sealed class Debouncer : IDisposable
 {
     private readonly Timer _timer;

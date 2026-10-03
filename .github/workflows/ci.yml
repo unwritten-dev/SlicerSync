@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test
+        run: dotnet test tests/SlicerSync.Core.Tests -c Release
+
+      - name: Publish (smoke test)
+        run: dotnet publish src/SlicerSync.App -c Release -o publish

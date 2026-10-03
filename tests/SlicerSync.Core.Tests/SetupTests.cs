@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using SlicerSync.Core.Config;
 using SlicerSync.Core.FileSystem;
 using SlicerSync.Core.Setup;
@@ -35,17 +35,17 @@ public sealed class SetupTests : IDisposable
 
         var result = pc.NewSetup();
 
-        // Junctions zeigen auf den Repository-Ordner, Dateien sind weiterhin am Originalort lesbar.
+        // Junctions point to the repository folder; files are still readable at the original location.
         Assert.True(Junction.PointsTo(pc.OrcaDir("default", "filament"), Path.Combine(pc.Settings.RepoPath, @"Orca\default\filament")));
         Assert.True(Junction.PointsTo(pc.PrusaDir("print"), Path.Combine(pc.Settings.RepoPath, @"Prusa\print")));
         Assert.Equal("{\"name\":\"PLA Fein\"}", File.ReadAllText(originalFile));
         Assert.True(File.Exists(Path.Combine(pc.Settings.RepoPath, @"Orca\default\filament\PLA Fein.json")));
 
-        // Nicht gesicherte Prusa-Bestandteile bleiben unberührt.
+        // Prusa parts that are not backed up stay untouched.
         Assert.False(Junction.IsJunction(Path.Combine(pc.Paths.RoamingAppData, "PrusaSlicer")));
         Assert.True(File.Exists(Path.Combine(pc.Paths.RoamingAppData, "PrusaSlicer", "PrusaSlicer.ini")));
 
-        // Backup enthält alle Originaldateien.
+        // The backup contains all original files.
         Assert.NotNull(result.BackupZip);
         using (var zip = ZipFile.OpenRead(result.BackupZip!))
             Assert.Contains(zip.Entries, e => e.FullName == "original/Orca/default/filament/PLA Fein.json");
@@ -56,7 +56,7 @@ public sealed class SetupTests : IDisposable
         Assert.True(File.Exists(Path.Combine(pc.Settings.RepoPath, RepoManifest.FileName)));
 
         var remoteLog = _env.CreateRunner().RunChecked(_env.RemotePath, "log", "--oneline", "main");
-        Assert.Contains("Ersteinrichtung", remoteLog.StdOut);
+        Assert.Contains("Initial setup", remoteLog.StdOut);
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public sealed class SetupTests : IDisposable
 
         Assert.NotNull(result.BackupZip);
         using (var zip = ZipFile.OpenRead(result.BackupZip!))
-            Assert.Contains(zip.Entries, e => e.FullName == "lokal/Orca/default/filament/Nur lokal.json");
+            Assert.Contains(zip.Entries, e => e.FullName == "local/Orca/default/filament/Nur lokal.json");
 
         Assert.Equal(6, b.Settings.Mappings.Count);
         Assert.True(b.Settings.SetupCompleted);
@@ -145,7 +145,7 @@ public sealed class SetupTests : IDisposable
     {
         var b = _env.CreatePc("B");
         var ex = Assert.Throws<SetupException>(() => b.Setup.RunCloneSetup(b.Settings));
-        Assert.Contains("keine Slicer-Profile", ex.Message);
+        Assert.Contains("no slicer profiles", ex.Message);
     }
 
     [Fact]

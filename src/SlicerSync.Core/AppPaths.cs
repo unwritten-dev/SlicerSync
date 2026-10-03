@@ -1,8 +1,8 @@
 namespace SlicerSync.Core;
 
 /// <summary>
-/// Alle Basisverzeichnisse, die die App verwendet. Tests übergeben hier
-/// temporäre Ordner, damit nie echte Profil- oder Einstellungsordner berührt werden.
+/// All base directories used by the app. Tests pass temporary folders here so real profile
+/// or settings folders are never touched.
 /// </summary>
 public sealed record AppPaths(
     string RoamingAppData,

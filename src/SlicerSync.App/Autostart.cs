@@ -2,7 +2,7 @@ using Microsoft.Win32;
 
 namespace SlicerSync.App;
 
-/// <summary>Autostart über HKCU\...\Run (keine Adminrechte nötig).</summary>
+/// <summary>Autostart via HKCU\...\Run (no admin rights needed).</summary>
 public static class Autostart
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";

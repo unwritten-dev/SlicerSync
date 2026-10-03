@@ -3,7 +3,7 @@ using SlicerSync.Core.Logging;
 
 namespace SlicerSync.Core.FileSystem;
 
-/// <summary>Legt ZIP-Sicherungen an, bevor irgendetwas verschoben, gelöscht oder überschrieben wird.</summary>
+/// <summary>Creates ZIP backups before anything is moved, deleted or overwritten.</summary>
 public sealed class BackupService
 {
     private readonly string _backupDir;
@@ -18,8 +18,8 @@ public sealed class BackupService
     public string BackupDir => _backupDir;
 
     /// <summary>
-    /// Sichert Ordner und Dateien in ein ZIP. Jeder Eintrag landet unter seinem Namen im Archiv.
-    /// Gibt den Pfad des ZIP zurück. Prüft danach, dass alle Dateien im Archiv sind.
+    /// Backs up folders and files into a ZIP; each item is stored under its given name.
+    /// Verifies afterwards that every file made it into the archive. Returns the ZIP path.
     /// </summary>
     public string CreateBackup(string label, IEnumerable<(string Source, string NameInZip)> items)
     {
@@ -43,7 +43,7 @@ public sealed class BackupService
                         zip.CreateEntryFromFile(file, $"{prefix}/{rel}", CompressionLevel.Optimal);
                         expected++;
                     }
-                    // Leere Ordner als Verzeichniseintrag erhalten.
+                    // Keep empty folders as directory entries.
                     if (!Directory.EnumerateFileSystemEntries(source).Any())
                         zip.CreateEntry(prefix + "/");
                 }
@@ -59,10 +59,12 @@ public sealed class BackupService
         {
             var actual = check.Entries.Count(e => !e.FullName.EndsWith('/'));
             if (actual != expected)
-                throw new IOException($"Sicherung unvollständig ({actual} von {expected} Dateien): {zipPath}");
+                throw new IOException(Loc.T(
+                    $"Backup incomplete ({actual} of {expected} files): {zipPath}",
+                    $"Sicherung unvollständig ({actual} von {expected} Dateien): {zipPath}"));
         }
 
-        _log.Info($"Sicherung angelegt: {zipPath} ({expected} Dateien)");
+        _log.Info(Loc.T($"Backup created: {zipPath} ({expected} files)", $"Sicherung angelegt: {zipPath} ({expected} Dateien)"));
         return zipPath;
     }
 }

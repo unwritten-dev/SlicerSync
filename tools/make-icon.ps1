@@ -1,4 +1,4 @@
-﻿# Erzeugt assets\SlicerSync.ico (mehrere Größen, PNG-komprimiert).
+# Generates assets\SlicerSync.ico (several sizes, PNG-compressed).
 Add-Type -AssemblyName System.Drawing
 
 function New-IconBitmap([int]$size) {
@@ -7,7 +7,7 @@ function New-IconBitmap([int]$size) {
     $g.SmoothingMode = 'AntiAlias'
     $g.Clear([System.Drawing.Color]::Transparent)
 
-    # Abgerundetes Quadrat
+    # Rounded square
     $r = [Math]::Max(2, $size * 0.22)
     $path = New-Object System.Drawing.Drawing2D.GraphicsPath
     $w = $size - 1
@@ -19,7 +19,7 @@ function New-IconBitmap([int]$size) {
     $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush (New-Object System.Drawing.Point 0, 0), (New-Object System.Drawing.Point $size, $size), ([System.Drawing.Color]::FromArgb(255, 37, 99, 235)), ([System.Drawing.Color]::FromArgb(255, 14, 116, 144))
     $g.FillPath($brush, $path)
 
-    # Zwei Pfeilbögen (Sync-Symbol)
+    # Two arrow arcs (sync symbol)
     $penWidth = [Math]::Max(1.5, $size * 0.1)
     $pen = New-Object System.Drawing.Pen ([System.Drawing.Color]::White), $penWidth
     $cap = New-Object System.Drawing.Drawing2D.AdjustableArrowCap 2.2, 2.2
@@ -57,4 +57,4 @@ for ($i = 0; $i -lt $sizes.Count; $i++) {
 }
 foreach ($img in $images) { $bw.Write($img) }
 $bw.Close()
-Write-Host "Icon geschrieben: $out"
+Write-Host "Icon written: $out"

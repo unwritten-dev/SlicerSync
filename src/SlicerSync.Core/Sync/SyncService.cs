@@ -7,14 +7,14 @@ namespace SlicerSync.Core.Sync;
 
 public enum SyncOutcome
 {
-    /// <summary>Etwas wurde committet, geholt oder hochgeladen.</summary>
+    /// <summary>Something was committed, pulled or pushed.</summary>
     Success,
-    /// <summary>Alles war bereits aktuell.</summary>
+    /// <summary>Everything was up to date already.</summary>
     NoChanges,
-    /// <summary>Pull-Konflikt: Rebase abgebrochen, nichts überschrieben.</summary>
+    /// <summary>Pull conflict: rebase aborted, nothing overwritten.</summary>
     Conflict,
     Failed,
-    /// <summary>Es lief bereits ein Sync.</summary>
+    /// <summary>A sync was already running.</summary>
     Busy,
 }
 
@@ -31,8 +31,8 @@ public sealed class SyncResult
 }
 
 /// <summary>
-/// Ablauf: git add -A → Commit nur bei Änderungen → git pull --rebase → git push.
-/// Bei einem Konflikt wird der Rebase abgebrochen; der lokale Commit bleibt erhalten.
+/// Flow: git add -A → commit only if something changed → git pull --rebase → git push.
+/// On a conflict the rebase is aborted; the local commit is kept.
 /// </summary>
 public sealed class SyncService
 {
@@ -56,7 +56,7 @@ public sealed class SyncService
     public SyncResult Sync()
     {
         if (!_gate.Wait(0))
-            return new SyncResult { Outcome = SyncOutcome.Busy, Message = "Synchronisierung läuft bereits." };
+            return new SyncResult { Outcome = SyncOutcome.Busy, Message = Loc.T("A sync is already running.", "Synchronisierung läuft bereits.") };
 
         SyncResult result;
         try
@@ -66,7 +66,7 @@ public sealed class SyncService
         }
         catch (Exception ex)
         {
-            _log.Error("Synchronisierung fehlgeschlagen", ex);
+            _log.Error(Loc.T("Sync failed", "Synchronisierung fehlgeschlagen"), ex);
             result = new SyncResult { Outcome = SyncOutcome.Failed, Message = ex.Message };
         }
         finally
@@ -79,8 +79,8 @@ public sealed class SyncService
     }
 
     /// <summary>
-    /// Führt eine Aktion aus, während garantiert kein Sync läuft (z. B. Ordner verschieben,
-    /// Datei wiederherstellen). Wartet ggf. auf einen laufenden Sync.
+    /// Runs an action while it is guaranteed that no sync is running (e.g. moving folders,
+    /// restoring a file). Waits for a running sync if necessary.
     /// </summary>
     public T RunExclusive<T>(Func<T> action)
     {
@@ -93,7 +93,11 @@ public sealed class SyncService
     {
         var repo = new GitRepository(_git, s.RepoPath);
         if (!repo.Exists)
-            return new SyncResult { Outcome = SyncOutcome.Failed, Message = $"Kein Git-Repository unter {s.RepoPath}." };
+            return new SyncResult
+            {
+                Outcome = SyncOutcome.Failed,
+                Message = Loc.T($"No Git repository at {s.RepoPath}.", $"Kein Git-Repository unter {s.RepoPath}."),
+            };
 
         var warnings = CheckJunctions(s);
         foreach (var w in warnings)
@@ -103,13 +107,15 @@ public sealed class SyncService
             return new SyncResult
             {
                 Outcome = SyncOutcome.Failed,
-                Message = "Im Repository läuft noch ein Rebase. Bitte manuell abschließen oder abbrechen (git rebase --abort).",
+                Message = Loc.T(
+                    "A rebase is still in progress in the repository. Please finish or abort it manually (git rebase --abort).",
+                    "Im Repository läuft noch ein Rebase. Bitte manuell abschließen oder abbrechen (git rebase --abort)."),
                 Warnings = warnings,
             };
 
         repo.EnsureIdentity();
 
-        // 1. Lokale Änderungen committen
+        // 1. Commit local changes
         repo.StageAll();
         var staged = repo.StagedFiles();
         if (staged.Count > 0)
@@ -125,7 +131,10 @@ public sealed class SyncService
             return new SyncResult
             {
                 Outcome = staged.Count > 0 ? SyncOutcome.Success : SyncOutcome.NoChanges,
-                Message = staged.Count > 0 ? $"{staged.Count} Dateien lokal committet (kein Remote eingestellt)." : "Keine Änderungen.",
+                Message = staged.Count > 0
+                    ? Loc.T($"{staged.Count} files committed locally (no remote configured).",
+                            $"{staged.Count} Dateien lokal committet (kein Remote eingestellt).")
+                    : Loc.T("No changes.", "Keine Änderungen."),
                 FilesCommitted = staged.Count,
                 Warnings = warnings,
             };
@@ -133,38 +142,41 @@ public sealed class SyncService
 
         repo.SetRemote(s.RemoteUrl);
 
-        // 2. Änderungen anderer PCs holen
+        // 2. Fetch changes from other PCs
         var pull = repo.PullRebase(s.Branch);
         if (pull == PullOutcome.Conflict)
         {
-            const string msg = "Konflikt mit Änderungen eines anderen PCs. Der Abgleich wurde abgebrochen, lokal wurde nichts überschrieben. " +
-                               "Bitte den Konflikt im Repository manuell lösen (siehe README).";
+            var msg = Loc.T(
+                "Conflict with changes from another PC. The sync was aborted and nothing was overwritten locally. " +
+                "Please resolve the conflict in the repository manually (see README).",
+                "Konflikt mit Änderungen eines anderen PCs. Der Abgleich wurde abgebrochen, lokal wurde nichts überschrieben. " +
+                "Bitte den Konflikt im Repository manuell lösen (siehe README).");
             _log.Error(msg);
             return new SyncResult { Outcome = SyncOutcome.Conflict, Message = msg, FilesCommitted = staged.Count, Warnings = warnings };
         }
         if (pull == PullOutcome.Updated)
-            _log.Info("Änderungen vom Remote übernommen.");
+            _log.Info(Loc.T("Changes from the remote applied.", "Änderungen vom Remote übernommen."));
 
-        // 3. Hochladen, falls lokal etwas fehlt
+        // 3. Push if the remote is missing something
         var pushed = false;
         var ahead = pull == PullOutcome.NoRemoteBranch ? null : repo.CommitsAhead(s.Branch);
         if (repo.HeadHash() != null && (ahead == null || ahead > 0))
         {
             repo.Push(s.Branch);
             pushed = true;
-            _log.Info("Push erfolgreich.");
+            _log.Info(Loc.T("Push successful.", "Push erfolgreich."));
         }
 
         var changed = staged.Count > 0 || pull == PullOutcome.Updated || pushed;
         var parts = new List<string>();
-        if (staged.Count > 0) parts.Add($"{staged.Count} Dateien gesichert");
-        if (pull == PullOutcome.Updated) parts.Add("Änderungen von anderem PC übernommen");
-        if (pushed && staged.Count == 0) parts.Add("ausstehende Commits hochgeladen");
+        if (staged.Count > 0) parts.Add(Loc.T($"{staged.Count} files backed up", $"{staged.Count} Dateien gesichert"));
+        if (pull == PullOutcome.Updated) parts.Add(Loc.T("changes from another PC applied", "Änderungen von anderem PC übernommen"));
+        if (pushed && staged.Count == 0) parts.Add(Loc.T("pending commits uploaded", "ausstehende Commits hochgeladen"));
 
         return new SyncResult
         {
             Outcome = changed ? SyncOutcome.Success : SyncOutcome.NoChanges,
-            Message = changed ? string.Join(", ", parts) + "." : "Alles aktuell.",
+            Message = changed ? Capitalize(string.Join(", ", parts)) + "." : Loc.T("Everything up to date.", "Alles aktuell."),
             FilesCommitted = staged.Count,
             PulledChanges = pull == PullOutcome.Updated,
             Pushed = pushed,
@@ -172,7 +184,9 @@ public sealed class SyncService
         };
     }
 
-    /// <summary>Meldet Profilordner, deren Junction fehlt (z. B. weil ein Slicer-Update den Ordner neu angelegt hat).</summary>
+    private static string Capitalize(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    /// <summary>Reports profile folders whose junction is gone (e.g. a slicer update recreated the folder).</summary>
     public static List<string> CheckJunctions(AppSettings s)
     {
         var warnings = new List<string>();
@@ -183,9 +197,15 @@ public sealed class SyncService
                 continue;
             warnings.Add(state switch
             {
-                MappingState.NotLinked => $"{m.DisplayName}: Ordner ist nicht mehr verlinkt – Änderungen werden nicht gesichert. Bitte im Einrichtungsassistenten erneut einrichten.",
-                MappingState.ForeignJunction => $"{m.DisplayName}: Junction zeigt auf einen anderen Ort.",
-                _ => $"{m.DisplayName}: Ordner fehlt am Originalort ({m.OriginalPath}).",
+                MappingState.NotLinked => Loc.T(
+                    $"{m.DisplayName}: the folder is no longer linked – changes are not backed up. Please run the setup wizard again.",
+                    $"{m.DisplayName}: Ordner ist nicht mehr verlinkt – Änderungen werden nicht gesichert. Bitte im Einrichtungsassistenten erneut einrichten."),
+                MappingState.ForeignJunction => Loc.T(
+                    $"{m.DisplayName}: the junction points to a different location.",
+                    $"{m.DisplayName}: Junction zeigt auf einen anderen Ort."),
+                _ => Loc.T(
+                    $"{m.DisplayName}: the folder is missing at its original location ({m.OriginalPath}).",
+                    $"{m.DisplayName}: Ordner fehlt am Originalort ({m.OriginalPath})."),
             });
         }
         return warnings;

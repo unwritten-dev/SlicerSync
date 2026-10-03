@@ -1,4 +1,4 @@
-using SlicerSync.Core;
+﻿using SlicerSync.Core;
 using SlicerSync.Core.Config;
 using SlicerSync.Core.FileSystem;
 using SlicerSync.Core.Git;
@@ -10,8 +10,8 @@ using SlicerSync.Core.Sync;
 namespace SlicerSync.Core.Tests;
 
 /// <summary>
-/// Ein simulierter „PC“ in einem temporären Ordner: eigenes AppData, eigenes Repository,
-/// isolierte Git-Konfiguration. Echte Profil- oder Einstellungsordner werden nie berührt.
+/// A simulated "PC" in a temporary folder: its own AppData, its own repository and an
+/// isolated Git configuration. Real profile or settings folders are never touched.
 /// </summary>
 public sealed class TestPc
 {
@@ -65,7 +65,7 @@ public sealed class TestPc
         return file;
     }
 
-    /// <summary>Legt typische Orca- und Prusa-Profile an, inkl. Prusa-Cache, der nicht gesichert werden darf.</summary>
+    /// <summary>Creates typical Orca and Prusa profiles, including a Prusa cache that must not be backed up.</summary>
     public void CreateSampleProfiles()
     {
         WriteFile(OrcaDir("default", "filament"), "PLA Fein.json", "{\"name\":\"PLA Fein\"}");
@@ -93,7 +93,7 @@ public sealed class TestEnvironment : IDisposable
         Root = Path.Combine(Path.GetTempPath(), "SlicerSyncTests", Guid.NewGuid().ToString("N")[..12]);
         Directory.CreateDirectory(Root);
 
-        GitExe = GitLocator.Find() ?? throw new InvalidOperationException("Für die Tests wird git.exe benötigt.");
+        GitExe = GitLocator.Find() ?? throw new InvalidOperationException("The tests need git.exe.");
         GlobalConfig = Path.Combine(Root, "gitconfig");
         File.WriteAllText(GlobalConfig, "[user]\n\tname = Test\n\temail = test@example.invalid\n[init]\n\tdefaultBranch = main\n");
 
@@ -121,7 +121,7 @@ public sealed class TestEnvironment : IDisposable
     {
         try
         {
-            // Erst alle Junctions entfernen, dann den Rest löschen.
+            // Remove all junctions first, then delete the rest.
             foreach (var dir in Directory.EnumerateDirectories(Root, "*", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = 0 })
                          .Where(Junction.IsJunction).ToList())
                 Directory.Delete(dir, false);
@@ -131,7 +131,7 @@ public sealed class TestEnvironment : IDisposable
         }
         catch (Exception)
         {
-            // Aufräumen ist best effort.
+            // Cleanup is best effort.
         }
     }
 }

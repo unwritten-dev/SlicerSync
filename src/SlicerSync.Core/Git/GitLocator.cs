@@ -3,9 +3,8 @@ using Microsoft.Win32;
 namespace SlicerSync.Core.Git;
 
 /// <summary>
-/// Sucht git.exe. Neben PATH werden die üblichen Installationsorte und die Registry geprüft,
-/// weil eine gerade erst (vom Installer) installierte Git-Version noch nicht im PATH des
-/// laufenden Prozesses steht.
+/// Locates git.exe. Besides PATH it checks the usual install locations and the registry, because
+/// a Git that the installer has just installed is not yet on the PATH of the running process.
 /// </summary>
 public static class GitLocator
 {
@@ -41,7 +40,7 @@ public static class GitLocator
                 using var key = root.OpenSubKey(@"SOFTWARE\GitForWindows");
                 install = key?.GetValue("InstallPath") as string;
             }
-            catch (Exception) { /* keine Berechtigung o. Ä. */ }
+            catch (Exception) { /* no permission etc. */ }
             if (install != null)
                 yield return Path.Combine(install, "cmd", "git.exe");
         }

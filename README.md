@@ -1,182 +1,194 @@
 # SlicerSync
 
-SlicerSync ist eine kleine Windows-App für den Infobereich der Taskleiste. Sie sichert deine selbst erstellten Profile aus
-**Orca Slicer** und **PrusaSlicer** automatisch in ein privates Git-Repository (GitHub, GitLab, …), mit
-vollständigem Versionsverlauf. Einrichtung und Betrieb kommen ohne Kommandozeile aus.
+**English** | [Deutsch](README.de.md)
 
-## So funktioniert es
+SlicerSync is a small Windows tray app that automatically backs up your own slicer profiles to a private Git
+repository (GitHub, GitLab, …), with full version history. Set it up once, and every profile you save in your
+slicer is backed up and synced to your other PCs. No command line needed.
 
-1. Die Profilordner werden in einen Repository-Ordner verschoben (Standard: `%UserProfile%\SlicerProfiles`).
-2. Am ursprünglichen Ort entsteht eine Verzeichnis-Junction (`mklink /J`), die auf den neuen Ort zeigt. Die Slicer
-   arbeiten unverändert weiter, Git sieht die echten Dateien.
-3. Ein Sync führt `git add -A` aus und committet nur, wenn sich etwas geändert hat. Danach folgen `git pull --rebase` und `git push`.
+**Supported out of the box:** Orca Slicer, Bambu Studio, PrusaSlicer, SuperSlicer.
+**Any other slicer** (Cura, Creality Print, ElegooSlicer, …) can be added as a custom folder.
 
-Gesicherte Ordner (jeweils einzeln verlinkt):
+## Download
 
-| Slicer | Originalort | Im Repository |
+Get **`SlicerSync-Setup-<version>.exe`** from the [latest release](../../releases/latest) and run it.
+
+- If **Git for Windows** is not installed yet, the setup downloads and installs it for you (the SHA-256 checksum is
+  verified). It includes the **Git Credential Manager**, which handles sign-in to GitHub/GitLab.
+- The .NET runtime is built into the app, so nothing else needs to be installed.
+- The release also contains a portable `SlicerSync-<version>-portable.exe`. It needs Git for Windows to be
+  installed already.
+
+Requirements: Windows 10 or 11 (64-bit).
+
+## How it works
+
+1. Your profile folders are moved into a repository folder (default: `%UserProfile%\SlicerProfiles`).
+2. At the original location a directory junction (`mklink /J`) points to the new location. The slicers keep working
+   as before; Git sees the real files.
+3. A sync runs `git add -A`, commits only if something changed, then `git pull --rebase` and `git push`.
+
+| Slicer | Original location | In the repository |
 |---|---|---|
-| Orca Slicer | `%AppData%\OrcaSlicer\user\<default oder Nutzer-ID>\{filament, machine, process}` | `Orca\<…>\…` |
+| Orca Slicer | `%AppData%\OrcaSlicer\user\<default or user ID>\{filament, machine, process}` | `Orca\…` |
+| Bambu Studio | `%AppData%\BambuStudio\user\<user ID>\{filament, machine, process}` | `Bambu\…` |
 | PrusaSlicer | `%AppData%\PrusaSlicer\{print, filament, printer, physical_printer}` | `Prusa\…` |
+| SuperSlicer | `%AppData%\SuperSlicer\{print, filament, printer, physical_printer}` | `SuperSlicer\…` |
+| Custom folder | any folder you choose | `Custom\<name>` |
 
-Vom PrusaSlicer-Ordner werden nur diese Unterordner gesichert. Cache und rechnerspezifische Einstellungen
-(z. B. `PrusaSlicer.ini`) bleiben außen vor.
+Only these subfolders are backed up, never the whole application folder. Caches and machine-specific settings
+(e.g. `PrusaSlicer.ini`) are left alone.
 
-## Installation
+## First setup
 
-1. `SlicerSync-Setup-<Version>.exe` ausführen (Administratorrechte nötig).
-2. Ist **Git for Windows** noch nicht installiert, lädt das Setup es herunter (die SHA-256-Prüfsumme wird geprüft) und
-   installiert es still mit. Der **Git Credential Manager** ist dabei automatisch enthalten.
-3. Am Ende startet SlicerSync. Die .NET-Laufzeit ist in der EXE enthalten, es muss nichts weiter installiert werden.
+On first start the setup wizard opens (English by default, German can be selected on the first page):
 
-## Erste Einrichtung
+1. **Welcome:** checks that Git is available.
+2. **Setup type:** *New setup* (this PC has the profiles) or *Second PC* (see below).
+3. **Profile folders:** choose the detected folders, or add any other folder with **Add custom folder…**.
+4. **Repository:** local folder, remote URL and branch.
+   - Click **Create on GitHub…** to create a new private repository directly from the app. If needed, the Git
+     Credential Manager opens a browser sign-in first.
+   - Click **Create on GitLab…** to use a new GitLab project. GitLab creates it as a private project on the first
+     upload.
+   - Or create an **empty, private** repository yourself and paste its HTTPS URL.
+5. **Summary → Set up:** the slicers must be closed. SlicerSync creates a ZIP backup, moves and links the folders,
+   makes the first commit and uploads it.
 
-Beim ersten Start öffnet sich der Einrichtungsassistent:
+> ⚠ **`physical_printer`** (PrusaSlicer/SuperSlicer) can contain API keys and passwords for PrusaLink/OctoPrint.
+> Your repository **must be private**.
 
-1. **Willkommen:** Prüft, ob Git vorhanden ist.
-2. **Einrichtungsart:** Neu einrichten oder Zweiter PC (siehe unten).
-3. **Profilordner:** Gefundene Ordner auswählen.
-4. **Repository:** Ordner, Remote-URL und Branch angeben.
-   - Lege vorher bei GitHub/GitLab ein **leeres, privates** Repository an und kopiere die HTTPS-URL,
-     z. B. `https://github.com/name/slicer-profile.git`.
-   - Beim ersten Zugriff öffnet sich das Anmeldefenster des Git Credential Manager. SlicerSync selbst speichert keine
-     Zugangsdaten.
-5. **Zusammenfassung → Einrichten:** Die Slicer müssen geschlossen sein. SlicerSync legt zuerst eine ZIP-Sicherung an,
-   dann werden die Ordner verschoben und verlinkt. Zum Schluss folgen der erste Commit und der Push.
+SlicerSync never stores credentials itself. Sign-in is handled entirely by the Git Credential Manager, which keeps it
+in the Windows Credential Manager.
 
-> ⚠ **`physical_printer`** kann API-Schlüssel und Passwörter für PrusaLink/OctoPrint enthalten.
-> Das Repository muss daher **privat** sein.
+Folders that are already set up (existing junctions) are detected and skipped. You can safely run the wizard again,
+e.g. after a slicer update recreated a folder.
 
-Bereits eingerichtete Ordner (vorhandene Junctions) werden erkannt und übersprungen. Den Assistenten kannst du daher
-gefahrlos erneut ausführen, z. B. nachdem ein Slicer-Update einen Ordner neu angelegt hat.
+### Second PC
 
-### Zweiter PC
+In the wizard choose **Second PC – clone an existing repository** and enter the same remote URL. SlicerSync then:
 
-Im Assistenten **„Zweiter PC – bestehendes Repository klonen“** wählen und dieselbe Remote-URL angeben. SlicerSync
-erledigt dann:
+1. clones the repository,
+2. backs up the existing local profile folders as ZIP,
+3. replaces them with junctions to the repository. The repository state wins.
 
-1. Das Repository wird geklont.
-2. Vorhandene lokale Profilordner werden als ZIP gesichert.
-3. Die lokalen Ordner werden durch Junctions auf das Repository ersetzt. Der Stand im Repository gilt.
+Profiles that only existed on this PC can be found in the ZIP backup afterwards (tray menu → **Open backups**).
+Custom folders are mapped to the same place on the second PC (relative to `%AppData%`, `%LocalAppData%` or your
+user folder).
 
-Lokale Profile, die es nur auf diesem PC gab, findest du danach in der ZIP-Sicherung (Tray-Menü → „Sicherungen öffnen“).
+Orca Slicer and Bambu Studio store profiles per signed-in user (`default` or your user ID). To share profiles between
+PCs, sign in with the same account on both PCs (or with none, which means `default`).
 
-Hinweis zu Orca Slicer: Die Ordner werden über den Namen des Benutzer-Unterordners zugeordnet (`default` oder deine
-Orca-Nutzer-ID). Damit beide PCs dieselben Profile sehen, sollte Orca auf beiden PCs gleich angemeldet sein
-(beide nicht angemeldet = `default`).
+## When does SlicerSync back up?
 
-## Wann wird gesichert?
+Set under **Settings → Sync**:
 
-Einstellbar unter **Einstellungen → Synchronisation**:
+- **Shortly after a file change** (default): SlicerSync watches the repository folder and syncs once 30 seconds
+  (configurable) after the last change.
+- **At a fixed interval:** every *n* minutes.
+- **Daily** at a fixed time.
+- **Manually only.**
 
-- **Kurz nach einer Dateiänderung** (Standard): SlicerSync überwacht den Repository-Ordner. Nach der letzten Änderung
-  wartet es 30 Sekunden (einstellbar) und synchronisiert dann einmal.
-- **Intervall:** alle *n* Minuten.
-- **Täglich** zu einer festen Uhrzeit.
-- **Nur manuell.**
+In every mode you also get a sync on startup (can be turned off) to fetch changes from your other PCs, and
+**Sync now** in the tray menu. A commit is only made when files actually changed.
 
-Außerdem gibt es in jedem Modus:
+## Tray icon and menu
 
-- einen Sync beim Start (abschaltbar), damit Änderungen vom anderen PC geholt werden,
-- den Eintrag **„Jetzt synchronisieren“** im Tray-Menü.
+The dot on the icon shows the state: **green** = OK, **yellow** = syncing, **red** = error or conflict,
+**grey** = not set up. Right-click for the menu: status, Sync now, History, Settings, log, repository and backup
+folders, setup wizard, Restore, Exit.
 
-## Tray-Icon und Menü
+Double-click the icon to open the **History**: recent commits with date and changed files. Select a file and click
+**Restore file to this state…**. The current version is backed up as ZIP first. Restart the slicer afterwards.
 
-Der Punkt am Icon zeigt den Zustand: **grün** = OK, **gelb** = Sync läuft, **rot** = Fehler oder Konflikt,
-**grau** = nicht eingerichtet. Ein Rechtsklick öffnet das Menü mit Status, „Jetzt synchronisieren“, Verlauf,
-Einstellungen, Protokoll, Repository- und Sicherungsordner, Einrichtungsassistent, Rückbau und Beenden.
+## If a conflict is reported
 
-Ein Doppelklick auf das Icon öffnet den **Verlauf**: die letzten Commits mit Datum und geänderten Dateien. Eine Datei
-auswählen und **„Datei auf diesen Stand zurücksetzen…“** klicken. Die aktuelle Version wird vorher als ZIP gesichert.
-Den Slicer danach neu starten.
+A conflict happens when two PCs changed the same profile file differently. SlicerSync then aborts the rebase and
+overwrites nothing. Your local commit is kept and the icon turns red.
 
-## Wenn ein Konflikt gemeldet wird
-
-Ein Konflikt entsteht, wenn zwei PCs dieselbe Profildatei unterschiedlich geändert haben. SlicerSync bricht den Rebase
-dann ab und überschreibt nichts. Der lokale Commit bleibt erhalten, das Icon wird rot.
-
-Lösung (einmalig von Hand, im Repository-Ordner, z. B. mit Git Bash):
+To resolve it once by hand in the repository folder (e.g. with Git Bash):
 
 ```bash
 cd ~/SlicerProfiles
-git pull --rebase origin main     # zeigt die betroffenen Dateien
-# Dateien bearbeiten: gewünschte Version behalten, Konfliktmarker entfernen
+git pull --rebase origin main     # shows the affected files
+# edit the files: keep the version you want, remove the conflict markers
 git add -A
 git rebase --continue
 git push
 ```
 
-Alternativ: `git rebase --abort`, die Datei auf diesem PC über den Verlauf auf den Remote-Stand zurücksetzen und erneut
-synchronisieren.
+Alternatively run `git rebase --abort`, restore the file on this PC to the remote state via the History, and sync
+again.
 
-## Rückbau
+## Restore (undo setup)
 
-Tray-Menü → **„Rückbau…“** (Slicer vorher schließen). Alle Junctions werden entfernt und die Ordner an ihren
-Originalort zurückkopiert. Das Repository samt Verlauf bleibt erhalten und kann danach von Hand gelöscht werden.
-Autostart wird dabei abgeschaltet.
+Tray menu → **Restore (undo setup)…** (close the slicers first). All junctions are removed and the folders are
+copied back to their original location. The repository with its history is kept and can be deleted by hand
+afterwards. Autostart is turned off.
 
-Abweichend vom ursprünglichen Konzept („zurückverschieben“) wird **kopiert**. Würden die Dateien aus dem
-Repository-Ordner entfernt, könnte ein späterer Sync das als Löschung zu den anderen PCs übertragen.
+The folders are **copied**, not moved back. If the files disappeared from the repository folder, a later sync could
+send that as a deletion to your other PCs.
 
-Einzelne Ordner lassen sich auch in **Einstellungen → Profile** abwählen (Rückbau nur für diesen Ordner) oder neu
-aufnehmen.
+Single folders can also be unchecked (restored) or added in **Settings → Profiles**.
 
-## Speicherorte
+## Where things are stored
 
-| Was | Wo |
+| What | Where |
 |---|---|
-| Einstellungen | `%AppData%\SlicerSync\settings.json` |
-| Protokoll | `%LocalAppData%\SlicerSync\slicersync.log` (rotiert bei 1 MB) |
-| ZIP-Sicherungen | `%LocalAppData%\SlicerSync\backups\` |
-| Profile + Git-Repository | Standard `%UserProfile%\SlicerProfiles` |
+| Settings | `%AppData%\SlicerSync\settings.json` |
+| Log | `%LocalAppData%\SlicerSync\slicersync.log` (rotated at 1 MB) |
+| ZIP backups | `%LocalAppData%\SlicerSync\backups\` |
+| Profiles + Git repository | default `%UserProfile%\SlicerProfiles` |
 | Autostart | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\SlicerSync` |
 
-Im Repository liegt außerdem `slicersync.json`: Diese Datei listet die gesicherten Ordner, damit ein zweiter PC
-weiß, was zu verlinken ist. Dazu kommt `.gitattributes` (`* -text`), damit Dateien byte-genau gespeichert werden.
+The repository also contains `slicersync.json`. It lists the backed-up folders, so a second PC knows what to link.
+There is also a `.gitattributes` file (`* -text`) so files are stored byte for byte.
 
-## Sicherheitsregeln
+## Safety rules
 
-- Vor jedem Verschieben, Ersetzen oder Zurücksetzen wird eine ZIP-Sicherung angelegt und auf Vollständigkeit geprüft.
-- Ordner werden erst kopiert und geprüft. Dann wird das Original zur Seite gelegt und die Junction angelegt.
-  Erst danach wird das Original gelöscht. Schlägt die Junction fehl, wird alles zurückgerollt.
-- Solange ein Slicer läuft, wird nichts verschoben.
-- Bei einem Pull-Konflikt wird der Rebase abgebrochen und nichts überschrieben.
-- Zugangsdaten verwaltet ausschließlich der Git Credential Manager (Windows-Anmeldeinformationsverwaltung).
+- Before anything is moved, replaced or restored, a ZIP backup is created and checked for completeness.
+- Folders are copied and verified first. Then the original is moved aside and the junction is created, and only
+  then is the original deleted. If the junction fails, everything is rolled back.
+- Nothing is moved while a known slicer is running. For custom folders SlicerSync cannot tell; close those
+  programs yourself.
+- On a pull conflict the rebase is aborted and nothing is overwritten.
+- Credentials are handled only by the Git Credential Manager.
 
-## Deinstallation
+## Uninstall
 
-Über „Apps & Features“. Das entfernt nur das Programm: Die Junctions bleiben bestehen und die Slicer funktionieren weiter.
-Wer die Ordner zurück an den Originalort legen möchte, führt **vorher** den Rückbau aus.
+Via *Settings → Apps*. This removes the program only: the junctions stay and the slicers keep working. If you want
+the folders back at their original location, run **Restore** **first**.
 
 ---
 
-## Entwicklung
+## Development
 
-### Voraussetzungen
+### Requirements
 
 - Windows 10/11 (x64)
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [Git for Windows](https://git-scm.com/download/win) (für die Tests)
-- [Inno Setup 6](https://jrsoftware.org/isdl.php) (nur für den Installer)
+- [Git for Windows](https://git-scm.com/download/win) (also needed by the tests)
+- [Inno Setup 6](https://jrsoftware.org/isdl.php) (only for the installer)
 
-Per winget: `winget install Microsoft.DotNet.SDK.8 Git.Git JRSoftware.InnoSetup`
+With winget: `winget install Microsoft.DotNet.SDK.8 Git.Git JRSoftware.InnoSetup`
 
-### Bauen
+### Build
 
 ```powershell
-.\build.ps1                    # Tests, Einzeldatei-EXE, Installer
-.\build.ps1 -SkipInstaller     # nur publish\SlicerSync.exe
+.\build.ps1                    # tests, single-file EXE, installer
+.\build.ps1 -SkipInstaller     # only publish\SlicerSync.exe
 .\build.ps1 -Version 1.1.0
 ```
 
-Ergebnis:
+Output:
 
-- `publish\SlicerSync.exe`: eigenständige Einzeldatei (win-x64, .NET-Laufzeit enthalten)
-- `dist\SlicerSync-Setup-<Version>.exe`: Installer
+- `publish\SlicerSync.exe`: self-contained single file (win-x64, .NET runtime included)
+- `dist\SlicerSync-Setup-<version>.exe`: installer
 
-Der Build fragt die aktuelle Git-for-Windows-Version samt SHA-256 bei GitHub ab. Ohne Internet gelten die Werte aus
-`installer\SlicerSync.iss`.
+The build queries the current Git for Windows version including its SHA-256 from GitHub. Without internet access
+the values in `installer\SlicerSync.iss` are used.
 
-Einzelne Schritte von Hand:
+Single steps by hand:
 
 ```powershell
 dotnet test
@@ -184,35 +196,52 @@ dotnet publish src\SlicerSync.App -c Release -o publish
 & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\SlicerSync.iss
 ```
 
-Das App-Icon (`assets\SlicerSync.ico`) erzeugt `tools\make-icon.ps1`.
+The app icon (`assets\SlicerSync.ico`) is generated by `tools\make-icon.ps1`.
 
-### Projektstruktur
+### Releases
+
+GitHub Actions runs the tests on every push (`.github/workflows/ci.yml`). Pushing a tag like `v1.1.0` builds the
+installer and publishes a GitHub release (`.github/workflows/release.yml`). Update `CHANGELOG.md` before tagging.
+
+### Project structure
 
 ```
-src/SlicerSync.Core/        Logik ohne Oberfläche (komplett getestet)
+src/SlicerSync.Core/        Logic without UI (covered by tests)
   Config/                   AppSettings, SettingsStore (JSON)
   Git/                      GitRunner (git.exe), GitRepository, GitLocator
   FileSystem/               Junction, BackupService (ZIP), DirectoryCopy
-  Slicers/                  SlicerDetector, ProcessGuard, RepoManifest
-  Setup/                    SetupService: Neu, Zweiter PC, Ordner hinzufügen/entfernen, Rückbau
+  Slicers/                  SlicerCatalog, SlicerDetector, ProcessGuard, RepoManifest
+  Setup/                    SetupService: new setup, second PC, add/remove folders, restore
   Sync/                     SyncService, SyncScheduler (+ Debouncer), CommitMessage
-  History/                  HistoryService (Verlauf, Datei zurücksetzen)
-src/SlicerSync.App/         WinForms-Tray-App
-  TrayContext.cs            Icon, Menü, Benachrichtigungen, Planung
-  Forms/                    SetupWizardForm, SettingsForm, HistoryForm
-tests/SlicerSync.Core.Tests xUnit; simuliert mehrere PCs mit temporären Ordnern,
-                            lokalem Bare-Repository als Remote und isolierter Git-Konfiguration
-installer/SlicerSync.iss    Inno-Setup-Skript (lädt Git bei Bedarf)
+  History/                  HistoryService (history, restore a file)
+  Hosting/                  RemoteCreator, GitHubClient, GitCredential
+  Loc.cs                    English/German texts
+src/SlicerSync.App/         WinForms tray app
+  TrayContext.cs            icon, menu, notifications, scheduling
+  Forms/                    SetupWizardForm, SettingsForm, HistoryForm, CreateRemoteForm, CustomFolderForm
+tests/SlicerSync.Core.Tests xUnit; simulates several PCs with temporary folders, a local bare
+                            repository as remote and an isolated Git configuration
+installer/SlicerSync.iss    Inno Setup script (downloads Git if needed)
 ```
 
-Die Tests greifen nie auf echte Profil- oder Einstellungsordner zu: Alle Pfade werden über `AppPaths` injiziert.
-Die globale Git-Konfiguration wird per `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_NOSYSTEM` isoliert.
+The tests never touch real profile or settings folders: all paths are injected via `AppPaths`. The global Git
+configuration is isolated with `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_NOSYSTEM`, and the GitHub API is simulated.
 
-### Platzhalter für die Commit-Nachricht
+### Adding another slicer
 
-`{datum}` `{zeit}` `{rechner}` `{benutzer}` `{anzahl}`, Standard:
-`Profil-Sync {datum} {zeit} von {rechner} ({anzahl} Dateien)`
+Add a `SlicerDefinition` to `src/SlicerSync.Core/Slicers/SlicerCatalog.cs`: AppData folder, layout (`UserSets`
+like Orca or `Flat` like PrusaSlicer), profile subfolders, executable path and process names. Detection, the
+running-slicer check and the second-PC mapping then work automatically.
 
-## Lizenz
+### Translations
 
-MIT, siehe [LICENSE](LICENSE).
+Every visible text is written as an English/German pair next to where it is used: `Loc.T("English", "Deutsch")`.
+
+### Commit message placeholders
+
+`{date}` `{time}` `{computer}` `{user}` `{count}` (German names like `{datum}` work too). Default:
+`Profile sync {date} {time} from {computer} ({count} files)`
+
+## License
+
+MIT, see [LICENSE](LICENSE).

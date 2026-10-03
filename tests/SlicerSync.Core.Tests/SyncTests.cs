@@ -1,4 +1,4 @@
-using SlicerSync.Core.Config;
+﻿using SlicerSync.Core.Config;
 using SlicerSync.Core.History;
 using SlicerSync.Core.Sync;
 
@@ -42,7 +42,7 @@ public sealed class SyncTests : IDisposable
         pc.NewSetup();
         pc.Settings.CommitMessageTemplate = "Test {rechner} {anzahl}";
 
-        // Der Slicer schreibt in den Originalordner (= Junction).
+        // The slicer writes into the original folder (= junction).
         pc.WriteFile(pc.OrcaDir("default", "filament"), "PETG.json", "{}");
         pc.WriteFile(pc.PrusaDir("print"), "Fein.ini", "layer_height = 0.12");
 
@@ -100,9 +100,9 @@ public sealed class SyncTests : IDisposable
         Assert.Equal(SyncOutcome.Conflict, result.Outcome);
         Assert.False(b.Repo.IsRebaseInProgress());
         Assert.Equal("layer_height = 0.13 (B)", File.ReadAllText(Path.Combine(b.PrusaDir("print"), "Fein.ini")));
-        // Der lokale Commit existiert weiterhin.
+        // The local commit still exists.
         Assert.Contains("1", b.Repo.CommitsAhead("main")?.ToString() ?? "");
-        // Remote unverändert (Stand von A).
+        // Remote unchanged (state of A).
         var remote = _env.CreateRunner().RunChecked(_env.RemotePath, "show", "main:Prusa/print/Fein.ini").StdOut;
         Assert.Equal("layer_height = 0.11 (A)", remote);
     }
@@ -128,7 +128,7 @@ public sealed class SyncTests : IDisposable
         var pc = _env.CreatePc("A");
         pc.CreateSampleProfiles();
         pc.NewSetup();
-        // Simuliert ein Slicer-Update, das den Ordner neu anlegt.
+        // Simulates a slicer update that recreates the folder.
         Directory.Delete(pc.PrusaDir("print"), false);
         pc.WriteFile(pc.PrusaDir("print"), "Neu.ini", "x");
 

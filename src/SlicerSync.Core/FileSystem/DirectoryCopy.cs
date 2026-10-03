@@ -2,7 +2,7 @@ namespace SlicerSync.Core.FileSystem;
 
 public static class DirectoryCopy
 {
-    /// <summary>Kopiert einen Ordner rekursiv. Vorhandene Dateien im Ziel werden nicht überschrieben.</summary>
+    /// <summary>Copies a folder recursively. Existing files in the target are never overwritten.</summary>
     public static void Copy(string source, string target)
     {
         Directory.CreateDirectory(target);
@@ -16,7 +16,7 @@ public static class DirectoryCopy
         }
     }
 
-    /// <summary>Prüft, ob jede Datei aus <paramref name="source"/> mit gleichem Inhalt in <paramref name="target"/> liegt.</summary>
+    /// <summary>Checks that every file from <paramref name="source"/> exists with identical content in <paramref name="target"/>.</summary>
     public static bool IsCopyComplete(string source, string target)
     {
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))

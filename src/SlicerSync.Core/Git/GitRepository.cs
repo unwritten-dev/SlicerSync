@@ -4,11 +4,11 @@ public sealed record ChangedFile(string Status, string Path, string? OldPath = n
 {
     public string StatusText => Status switch
     {
-        "A" => "neu",
-        "M" => "geändert",
-        "D" => "gelöscht",
-        "R" => "umbenannt",
-        "C" => "kopiert",
+        "A" => Loc.T("added", "neu"),
+        "M" => Loc.T("modified", "geändert"),
+        "D" => Loc.T("deleted", "gelöscht"),
+        "R" => Loc.T("renamed", "umbenannt"),
+        "C" => Loc.T("copied", "kopiert"),
         _ => Status,
     };
 }
@@ -20,7 +20,7 @@ public sealed record CommitInfo(string Hash, string Author, DateTimeOffset Date,
 
 public enum PullOutcome { UpToDate, Updated, NoRemoteBranch, Conflict }
 
-/// <summary>Git-Operationen auf einem Arbeitsverzeichnis.</summary>
+/// <summary>Git operations on a working directory.</summary>
 public sealed class GitRepository
 {
     public const string RemoteName = "origin";
@@ -50,11 +50,11 @@ public sealed class GitRepository
         var result = git.Run(parent, "clone", "--branch", branch, url, path);
         if (!result.Success)
         {
-            // Leere Repositories haben noch keinen Branch: dann ohne --branch klonen.
+            // Empty repositories have no branch yet: clone without --branch then.
             if (result.ErrorText.Contains("not found in upstream", StringComparison.OrdinalIgnoreCase))
                 git.RunChecked(parent, "clone", url, path);
             else
-                throw new GitException($"Klonen fehlgeschlagen: {result.ErrorText}", result);
+                throw new GitException(Loc.T($"Clone failed: {result.ErrorText}", $"Klonen fehlgeschlagen: {result.ErrorText}"), result);
         }
         return new GitRepository(git, path);
     }
@@ -67,7 +67,7 @@ public sealed class GitRepository
 
     public void SetConfig(string key, string value) => _git.RunChecked(Path, "config", key, value);
 
-    /// <summary>Setzt Name/E-Mail lokal, falls Git global keine Identität kennt (sonst schlägt commit fehl).</summary>
+    /// <summary>Sets a local name/e-mail if Git has no global identity (commits would fail otherwise).</summary>
     public void EnsureIdentity()
     {
         if (string.IsNullOrEmpty(GetConfig("user.name")))
@@ -103,7 +103,7 @@ public sealed class GitRepository
         return r.StdOut.Trim();
     }
 
-    /// <summary>Wechselt auf den gewünschten Branch (legt ihn an, wenn es noch keine Commits gibt).</summary>
+    /// <summary>Switches to the configured branch (only possible while there are no commits yet).</summary>
     public void EnsureBranch(string branch)
     {
         if (CurrentBranch() == branch)
@@ -111,7 +111,9 @@ public sealed class GitRepository
         if (HeadHash() == null)
             _git.RunChecked(Path, "symbolic-ref", "HEAD", "refs/heads/" + branch);
         else
-            throw new GitException($"Das Repository steht auf Branch „{CurrentBranch()}“, eingestellt ist „{branch}“.");
+            throw new GitException(Loc.T(
+                $"The repository is on branch \"{CurrentBranch()}\", but \"{branch}\" is configured.",
+                $"Das Repository steht auf Branch „{CurrentBranch()}“, eingestellt ist „{branch}“."));
     }
 
     public string? HeadHash()
@@ -136,14 +138,11 @@ public sealed class GitRepository
         if (r.ExitCode == 2)
             return false;
         if (!r.Success)
-            throw new GitException($"Remote nicht erreichbar: {r.ErrorText}", r);
+            throw new GitException(Loc.T($"Remote not reachable: {r.ErrorText}", $"Remote nicht erreichbar: {r.ErrorText}"), r);
         return true;
     }
 
-    /// <summary>
-    /// git pull --rebase. Bei einem Konflikt wird der Rebase abgebrochen, sodass der lokale
-    /// Stand unverändert bleibt.
-    /// </summary>
+    /// <summary>git pull --rebase. On a conflict the rebase is aborted so the local state stays unchanged.</summary>
     public PullOutcome PullRebase(string branch)
     {
         if (!RemoteBranchExists(branch))
@@ -158,7 +157,7 @@ public sealed class GitRepository
                 _git.Run(Path, "rebase", "--abort");
                 return PullOutcome.Conflict;
             }
-            throw new GitException($"git pull fehlgeschlagen: {r.ErrorText}", r);
+            throw new GitException(Loc.T($"git pull failed: {r.ErrorText}", $"git pull fehlgeschlagen: {r.ErrorText}"), r);
         }
         return HeadHash() == before ? PullOutcome.UpToDate : PullOutcome.Updated;
     }
@@ -167,7 +166,7 @@ public sealed class GitRepository
         Directory.Exists(System.IO.Path.Combine(Path, ".git", "rebase-merge")) ||
         Directory.Exists(System.IO.Path.Combine(Path, ".git", "rebase-apply"));
 
-    /// <summary>Anzahl lokaler Commits, die noch nicht auf dem Remote sind (null = Remote-Branch unbekannt).</summary>
+    /// <summary>Number of local commits not yet on the remote (null = remote branch unknown).</summary>
     public int? CommitsAhead(string branch)
     {
         var r = _git.Run(Path, "rev-list", "--count", $"{RemoteName}/{branch}..HEAD");
@@ -204,7 +203,7 @@ public sealed class GitRepository
             if (fields.Length < 5)
                 continue;
 
-            // Nach dem letzten Trennzeichen folgen NUL-getrennt: Status, Pfad[, Pfad] …
+            // After the last separator come NUL-separated tokens: status, path[, path] …
             var tokens = fields[4].Split('\0').Select(t => t.Trim('\n', '\r')).Where(t => t.Length > 0).ToList();
             var files = new List<ChangedFile>();
             for (var i = 0; i < tokens.Count; i++)
@@ -239,7 +238,7 @@ public sealed class GitRepository
         return r.Success;
     }
 
-    /// <summary>Überschreibt eine Datei im Arbeitsverzeichnis mit dem Stand aus einem Commit.</summary>
+    /// <summary>Overwrites a file in the working directory with its state from a commit.</summary>
     public void RestoreFile(string commit, string repoRelativePath) =>
         _git.RunChecked(Path, "restore", "--source", commit, "--worktree", "--", ToGitPath(repoRelativePath));
 

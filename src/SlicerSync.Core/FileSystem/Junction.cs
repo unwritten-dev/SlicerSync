@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace SlicerSync.Core.FileSystem;
 
-/// <summary>Anlegen, Erkennen und Entfernen von Verzeichnis-Junctions (mklink /J, ohne Adminrechte).</summary>
+/// <summary>Create, detect and remove directory junctions (mklink /J, no admin rights needed).</summary>
 public static class Junction
 {
     public static bool IsJunction(string path)
@@ -11,7 +11,7 @@ public static class Junction
         return info.Exists && info.Attributes.HasFlag(FileAttributes.ReparsePoint);
     }
 
-    /// <summary>Ziel einer Junction als vollständiger Pfad, oder null.</summary>
+    /// <summary>Full path of a junction's target, or null.</summary>
     public static string? GetTarget(string path)
     {
         if (!IsJunction(path))
@@ -33,9 +33,13 @@ public static class Junction
     public static void Create(string linkPath, string targetPath)
     {
         if (Directory.Exists(linkPath) || File.Exists(linkPath))
-            throw new IOException($"Am Ort der Junction existiert bereits etwas: {linkPath}");
+            throw new IOException(Loc.T(
+                $"Something already exists where the junction should go: {linkPath}",
+                $"Am Ort der Junction existiert bereits etwas: {linkPath}"));
         if (!Directory.Exists(targetPath))
-            throw new DirectoryNotFoundException($"Ziel der Junction fehlt: {targetPath}");
+            throw new DirectoryNotFoundException(Loc.T(
+                $"Junction target is missing: {targetPath}",
+                $"Ziel der Junction fehlt: {targetPath}"));
 
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(linkPath))!);
 
@@ -58,15 +62,17 @@ public static class Junction
         p.StandardOutput.ReadToEnd();
         p.WaitForExit();
         if (p.ExitCode != 0 || !PointsTo(linkPath, targetPath))
-            throw new IOException($"Junction konnte nicht angelegt werden ({linkPath} → {targetPath}): {err.Trim()}");
+            throw new IOException(Loc.T(
+                $"Could not create junction ({linkPath} → {targetPath}): {err.Trim()}",
+                $"Junction konnte nicht angelegt werden ({linkPath} → {targetPath}): {err.Trim()}"));
     }
 
-    /// <summary>Entfernt nur die Junction selbst – der Inhalt des Ziels bleibt unangetastet.</summary>
+    /// <summary>Removes only the junction itself – the target's content is left untouched.</summary>
     public static void Remove(string linkPath)
     {
         if (!IsJunction(linkPath))
-            throw new IOException($"Keine Junction: {linkPath}");
-        // Nicht rekursiv: löscht ausschließlich den Verweis.
+            throw new IOException(Loc.T($"Not a junction: {linkPath}", $"Keine Junction: {linkPath}"));
+        // Not recursive: deletes the link only.
         Directory.Delete(linkPath, recursive: false);
     }
 

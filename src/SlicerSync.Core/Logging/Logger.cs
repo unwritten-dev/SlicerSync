@@ -16,7 +16,7 @@ public static class LoggerExtensions
     public static void Error(this ILogger log, string message, Exception? ex = null) => log.Log(LogLevel.Error, message, ex);
 }
 
-/// <summary>Schreibt in eine Logdatei (rotiert bei 1 MB) und meldet jede Zeile per Ereignis.</summary>
+/// <summary>Writes to a log file (rotated at 1 MB) and raises an event for every line.</summary>
 public sealed class FileLogger : ILogger
 {
     private const long MaxSize = 1024 * 1024;
@@ -35,7 +35,7 @@ public sealed class FileLogger : ILogger
 
     public void Log(LogLevel level, string message, Exception? exception = null)
     {
-        var tag = level switch { LogLevel.Warning => "WARNUNG", LogLevel.Error => "FEHLER", _ => "INFO" };
+        var tag = level switch { LogLevel.Warning => "WARN", LogLevel.Error => "ERROR", _ => "INFO" };
         var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [{tag}] {message}";
         if (exception != null)
             line += Environment.NewLine + "    " + exception.ToString().Replace("\n", "\n    ");
@@ -51,7 +51,7 @@ public sealed class FileLogger : ILogger
             }
             catch (IOException)
             {
-                // Logging darf die App nie zum Absturz bringen.
+                // Logging must never crash the app.
             }
         }
 
@@ -59,7 +59,7 @@ public sealed class FileLogger : ILogger
     }
 }
 
-/// <summary>Sammelt Meldungen im Speicher (für Tests).</summary>
+/// <summary>Collects messages in memory (for tests).</summary>
 public sealed class MemoryLogger : ILogger
 {
     private readonly List<string> _lines = new();

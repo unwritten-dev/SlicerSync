@@ -23,7 +23,7 @@ public sealed class UnitTests : IDisposable
     public void CommitMessage_EmptyTemplate_UsesDefault()
     {
         var text = CommitMessage.Format("", new DateTime(2026, 1, 2), "PC", "u", 3);
-        Assert.StartsWith("Profil-Sync 2026-01-02", text);
+        Assert.StartsWith("Profile sync 2026-01-02", text);
     }
 
     [Theory]
@@ -100,7 +100,7 @@ public sealed class UnitTests : IDisposable
         File.WriteAllText(file, "{ kaputt");
         var fallback = store.Load();
         Assert.False(fallback.SetupCompleted);
-        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(file)!, "settings.json.defekt-*"));
+        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(file)!, "settings.json.broken-*"));
     }
 
     [Fact]

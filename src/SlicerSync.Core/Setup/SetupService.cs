@@ -8,13 +8,13 @@ namespace SlicerSync.Core.Setup;
 
 public enum MappingState
 {
-    /// <summary>Originalordner ist ein normaler Ordner (noch nicht eingerichtet).</summary>
+    /// <summary>The original folder is a regular folder (not set up yet).</summary>
     NotLinked,
-    /// <summary>Originalort ist eine Junction auf den Repository-Ordner.</summary>
+    /// <summary>The original location is a junction to the repository folder.</summary>
     Linked,
-    /// <summary>Originalort ist eine Junction auf einen anderen Ort.</summary>
+    /// <summary>The original location is a junction to somewhere else.</summary>
     ForeignJunction,
-    /// <summary>Am Originalort gibt es nichts.</summary>
+    /// <summary>Nothing exists at the original location.</summary>
     Missing,
 }
 
@@ -33,12 +33,12 @@ public sealed class SetupResult
 }
 
 /// <summary>
-/// Einrichtung (neu / zweiter PC), Hinzufügen und Entfernen einzelner Ordner sowie Rückbau.
-/// Grundregel: Bevor etwas gelöscht oder ersetzt wird, gibt es ein geprüftes ZIP-Backup.
+/// Setup (new / second PC), adding and removing single folders, and uninstall (restore).
+/// Ground rule: before anything is deleted or replaced there is a verified ZIP backup.
 /// </summary>
 public sealed class SetupService
 {
-    internal const string AsideSuffix = ".slicersync-alt";
+    internal const string AsideSuffix = ".slicersync-old";
 
     private readonly GitRunner _git;
     private readonly BackupService _backups;
@@ -64,42 +64,110 @@ public sealed class SetupService
         return MappingState.Missing;
     }
 
-    // ---------------------------------------------------------------- Neu einrichten
+    /// <summary>
+    /// Checks a folder the user wants to add as a custom folder. Returns an error message or null.
+    /// </summary>
+    public static string? ValidateCustomFolder(string name, string path, string repoPath, IEnumerable<ProfileMapping> existing)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Length > 60 ||
+            !name.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.') || name is "." or "..")
+            return Loc.T(
+                "Please use a short name made of letters (no umlauts), digits, '-', '_' or '.'.",
+                "Bitte einen kurzen Namen aus Buchstaben (ohne Umlaute), Ziffern, „-“, „_“ oder „.“ angeben.");
+        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path) || !Directory.Exists(path))
+            return Loc.T("The folder does not exist.", "Der Ordner existiert nicht.");
+
+        var full = Path.GetFullPath(path).TrimEnd('\\');
+        if (Path.GetPathRoot(full)!.TrimEnd('\\').Equals(full, StringComparison.OrdinalIgnoreCase))
+            return Loc.T("A whole drive cannot be backed up.", "Ein ganzes Laufwerk kann nicht gesichert werden.");
+        if (Junction.IsJunction(full))
+            return Loc.T("This folder is already a link (junction).", "Dieser Ordner ist bereits eine Verknüpfung (Junction).");
+
+        var repo = Path.GetFullPath(repoPath).TrimEnd('\\');
+        if (IsSameOrInside(full, repo) || IsSameOrInside(repo, full))
+            return Loc.T("The folder must not contain or be inside the repository folder.",
+                         "Der Ordner darf den Repository-Ordner weder enthalten noch darin liegen.");
+
+        var special = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+        };
+        if (special.Any(s => !string.IsNullOrEmpty(s) && Junction.PathsEqual(s, full)))
+            return Loc.T("Please choose the program's profile folder, not a system or user folder.",
+                         "Bitte den Profilordner des Programms wählen, nicht einen System- oder Benutzerordner.");
+
+        foreach (var m in existing.Where(m => m.Enabled))
+        {
+            if (m.IsCustom && string.Equals(m.Folder, name, StringComparison.OrdinalIgnoreCase))
+                return Loc.T("A custom folder with this name already exists.", "Es gibt bereits einen eigenen Ordner mit diesem Namen.");
+            var other = Path.GetFullPath(m.OriginalPath).TrimEnd('\\');
+            if (IsSameOrInside(full, other) || IsSameOrInside(other, full))
+                return Loc.T($"Overlaps with a folder that is already backed up: {m.DisplayName}",
+                             $"Überschneidet sich mit einem bereits gesicherten Ordner: {m.DisplayName}");
+        }
+        return null;
+    }
+
+    private static bool IsSameOrInside(string path, string parent) =>
+        path.Equals(parent, StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith(parent + "\\", StringComparison.OrdinalIgnoreCase);
+
+    // ---------------------------------------------------------------- New setup
 
     /// <summary>
-    /// Erst-Einrichtung auf dem PC, der die Profile hat: ZIP-Backup, Ordner ins Repository
-    /// verschieben, Junctions anlegen, git init, erster Commit, Push.
+    /// First setup on the PC that has the profiles: ZIP backup, move folders into the repository,
+    /// create junctions, git init, first commit, push.
     /// </summary>
-    public SetupResult RunNewSetup(AppSettings settings, IReadOnlyList<ProfileMapping> selected)
+    /// <param name="createRemoteOnPush">
+    /// true if the remote does not exist yet and is created on the first push (GitLab "push to create").
+    /// An unreachable remote is then not an error during the pre-check.
+    /// </param>
+    public SetupResult RunNewSetup(AppSettings settings, IReadOnlyList<ProfileMapping> selected, bool createRemoteOnPush = false)
     {
         ValidateBasics(settings);
         if (selected.Count == 0)
-            throw new SetupException("Es ist kein Profilordner ausgewählt.");
+            throw new SetupException(Loc.T("No profile folder selected.", "Es ist kein Profilordner ausgewählt."));
         _guard.EnsureSlicersClosed();
 
         var repo = new GitRepository(_git, settings.RepoPath);
         var hasRemote = !string.IsNullOrWhiteSpace(settings.RemoteUrl);
 
-        // Remote vor jeder Dateiänderung prüfen (löst ggf. auch die Anmeldung aus).
+        // Check the remote before touching any file (also triggers the sign-in if needed).
         if (hasRemote)
         {
             var probe = _git.Run(null, "ls-remote", "--heads", settings.RemoteUrl, settings.Branch);
-            if (!probe.Success)
-                throw new SetupException($"Das Remote-Repository ist nicht erreichbar:\n{probe.ErrorText}");
-            if (probe.StdOut.Trim().Length > 0 && !repo.Exists)
-                throw new SetupException(
+            if (!probe.Success && createRemoteOnPush)
+                _log.Info(Loc.T("Remote does not exist yet; it will be created on the first upload.",
+                                "Remote existiert noch nicht und wird beim ersten Hochladen angelegt."));
+            else if (!probe.Success)
+                throw new SetupException(Loc.T(
+                    $"The remote repository is not reachable:\n{probe.ErrorText}",
+                    $"Das Remote-Repository ist nicht erreichbar:\n{probe.ErrorText}"));
+            else if (probe.StdOut.Trim().Length > 0 && !repo.Exists)
+                throw new SetupException(Loc.T(
+                    "The remote repository already contains profiles. Please choose \"Second PC: clone existing repository\" " +
+                    "or use an empty repository.",
                     "Das Remote-Repository enthält bereits Profile. Bitte „Zweiter PC: bestehendes Repository klonen“ wählen " +
-                    "oder ein leeres Repository angeben.");
+                    "oder ein leeres Repository angeben."));
         }
 
         if (!repo.Exists && Directory.Exists(settings.RepoPath) && !DirectoryCopy.IsEmpty(settings.RepoPath))
         {
+            // Only our own top-level folders may already be there (e.g. after an uninstall without .git).
+            var known = SlicerCatalog.All.Select(d => d.RepoFolder).Append(SlicerKind.Custom);
             var unexpected = Directory.EnumerateFileSystemEntries(settings.RepoPath)
                 .Select(Path.GetFileName)
-                .Where(n => !string.Equals(n, "Orca", StringComparison.OrdinalIgnoreCase) && !string.Equals(n, "Prusa", StringComparison.OrdinalIgnoreCase))
+                .Where(n => !known.Contains(n, StringComparer.OrdinalIgnoreCase))
                 .ToList();
             if (unexpected.Count > 0)
-                throw new SetupException($"Der Repository-Ordner ist nicht leer und kein Git-Repository: {settings.RepoPath}");
+                throw new SetupException(Loc.T(
+                    $"The repository folder is not empty and not a Git repository: {settings.RepoPath}",
+                    $"Der Repository-Ordner ist nicht leer und kein Git-Repository: {settings.RepoPath}"));
         }
 
         var result = new SetupResult();
@@ -109,13 +177,13 @@ public sealed class SetupService
         var toLink = selected.Where(m => states[m] != MappingState.Linked).ToList();
         result.SkippedFolders = selected.Count - toLink.Count;
         foreach (var m in selected.Where(m => states[m] == MappingState.Linked))
-            _log.Info($"Bereits eingerichtet, wird übersprungen: {m.DisplayName}");
+            _log.Info(Loc.T($"Already set up, skipping: {m.DisplayName}", $"Bereits eingerichtet, wird übersprungen: {m.DisplayName}"));
 
-        result.BackupZip = BackupBeforeLink(toLink, settings.RepoPath, "einrichtung", states);
+        result.BackupZip = BackupBeforeLink(toLink, settings.RepoPath, "setup", states);
 
         if (!repo.Exists)
         {
-            _log.Info($"Erstelle Git-Repository in {settings.RepoPath}");
+            _log.Info(Loc.T($"Creating Git repository in {settings.RepoPath}", $"Erstelle Git-Repository in {settings.RepoPath}"));
             repo.Init(settings.Branch);
         }
         else
@@ -131,13 +199,15 @@ public sealed class SetupService
             result.LinkedFolders++;
         }
 
-        RepoManifest.AddFolders(settings.RepoPath, selected);
+        RepoManifest.AddFolders(settings.RepoPath, selected, _detector);
         repo.SetRemote(settings.RemoteUrl);
 
         repo.StageAll();
         var files = repo.StagedFiles();
         if (files.Count > 0)
-            repo.Commit($"Ersteinrichtung von {Environment.MachineName} ({files.Count} Dateien)");
+            repo.Commit(Loc.T(
+                $"Initial setup from {Environment.MachineName} ({files.Count} files)",
+                $"Ersteinrichtung von {Environment.MachineName} ({files.Count} Dateien)"));
 
         if (hasRemote)
         {
@@ -148,44 +218,54 @@ public sealed class SetupService
             }
             catch (GitException ex)
             {
-                result.Warnings.Add($"Push fehlgeschlagen – wird beim nächsten Sync erneut versucht: {ex.Message}");
-                _log.Warn("Push bei der Einrichtung fehlgeschlagen", ex);
+                result.Warnings.Add(Loc.T(
+                    $"Upload failed – it will be retried on the next sync: {ex.Message}",
+                    $"Hochladen fehlgeschlagen – wird beim nächsten Sync erneut versucht: {ex.Message}"));
+                _log.Warn(Loc.T("Push during setup failed", "Push bei der Einrichtung fehlgeschlagen"), ex);
             }
         }
 
         MergeMappings(settings, selected);
         settings.SetupCompleted = true;
-        _log.Info($"Einrichtung abgeschlossen: {result.LinkedFolders} Ordner verlinkt, {result.SkippedFolders} übersprungen.");
+        _log.Info(Loc.T(
+            $"Setup complete: {result.LinkedFolders} folders linked, {result.SkippedFolders} skipped.",
+            $"Einrichtung abgeschlossen: {result.LinkedFolders} Ordner verlinkt, {result.SkippedFolders} übersprungen."));
         return result;
     }
 
-    // ---------------------------------------------------------------- Zweiter PC
+    // ---------------------------------------------------------------- Second PC
 
     /// <summary>
-    /// Zweiter PC: bestehendes Repository klonen, lokale Profilordner per ZIP sichern und
-    /// durch Junctions auf das Repository ersetzen.
+    /// Second PC: clone the existing repository, back up local profile folders as ZIP and
+    /// replace them with junctions to the repository.
     /// </summary>
     public SetupResult RunCloneSetup(AppSettings settings)
     {
         ValidateBasics(settings);
         if (string.IsNullOrWhiteSpace(settings.RemoteUrl))
-            throw new SetupException("Für den Zweiter-PC-Modus wird die Remote-URL benötigt.");
+            throw new SetupException(Loc.T("The second-PC mode needs the remote URL.", "Für den Zweiter-PC-Modus wird die Remote-URL benötigt."));
         _guard.EnsureSlicersClosed();
 
         var repo = new GitRepository(_git, settings.RepoPath);
         if (repo.Exists)
         {
             if (!string.Equals(repo.GetRemoteUrl(), settings.RemoteUrl, StringComparison.OrdinalIgnoreCase))
-                throw new SetupException($"Im Ordner {settings.RepoPath} liegt bereits ein anderes Repository.");
-            _log.Info("Repository ist bereits geklont, hole aktuellen Stand.");
+                throw new SetupException(Loc.T(
+                    $"The folder {settings.RepoPath} already contains a different repository.",
+                    $"Im Ordner {settings.RepoPath} liegt bereits ein anderes Repository."));
+            _log.Info(Loc.T("Repository is already cloned, fetching the latest state.", "Repository ist bereits geklont, hole aktuellen Stand."));
             if (repo.PullRebase(settings.Branch) == PullOutcome.Conflict)
-                throw new SetupException("Beim Aktualisieren des vorhandenen Repositorys gab es einen Konflikt.");
+                throw new SetupException(Loc.T(
+                    "Updating the existing repository caused a conflict.",
+                    "Beim Aktualisieren des vorhandenen Repositorys gab es einen Konflikt."));
         }
         else
         {
             if (!DirectoryCopy.IsEmpty(settings.RepoPath))
-                throw new SetupException($"Der Repository-Ordner ist nicht leer: {settings.RepoPath}");
-            _log.Info($"Klone {settings.RemoteUrl} nach {settings.RepoPath}");
+                throw new SetupException(Loc.T(
+                    $"The repository folder is not empty: {settings.RepoPath}",
+                    $"Der Repository-Ordner ist nicht leer: {settings.RepoPath}"));
+            _log.Info(Loc.T($"Cloning {settings.RemoteUrl} to {settings.RepoPath}", $"Klone {settings.RemoteUrl} nach {settings.RepoPath}"));
             try
             {
                 repo = GitRepository.Clone(_git, settings.RemoteUrl, settings.RepoPath, settings.Branch);
@@ -198,8 +278,9 @@ public sealed class SetupService
 
         var mappings = _detector.MappingsFromRepository(settings.RepoPath);
         if (mappings.Count == 0)
-            throw new SetupException(
-                "Das Repository enthält keine Slicer-Profile. Bitte zuerst auf dem ersten PC „Neu einrichten“ ausführen.");
+            throw new SetupException(Loc.T(
+                "The repository contains no slicer profiles. Please run \"New setup\" on the first PC first.",
+                "Das Repository enthält keine Slicer-Profile. Bitte zuerst auf dem ersten PC „Neu einrichten“ ausführen."));
 
         var result = new SetupResult();
         var states = mappings.ToDictionary(m => m, m => GetState(m, settings.RepoPath));
@@ -208,13 +289,13 @@ public sealed class SetupService
         var toLink = mappings.Where(m => states[m] != MappingState.Linked).ToList();
         result.SkippedFolders = mappings.Count - toLink.Count;
 
-        // Nur die lokalen Originale sichern; der Repository-Stand gewinnt.
+        // Back up the local originals only; the repository state wins.
         var backupItems = toLink
             .Where(m => states[m] == MappingState.NotLinked)
-            .Select(m => (m.OriginalPath, $"lokal/{m.RepoRelativePath}"))
+            .Select(m => (m.OriginalPath, $"local/{m.RepoRelativePath}"))
             .ToList();
         if (backupItems.Count > 0)
-            result.BackupZip = _backups.CreateBackup("zweiter-pc", backupItems);
+            result.BackupZip = _backups.CreateBackup("second-pc", backupItems);
 
         foreach (var m in toLink)
         {
@@ -225,13 +306,15 @@ public sealed class SetupService
         repo.EnsureIdentity();
         MergeMappings(settings, mappings);
         settings.SetupCompleted = true;
-        _log.Info($"Zweiter PC eingerichtet: {result.LinkedFolders} Ordner verlinkt, {result.SkippedFolders} übersprungen.");
+        _log.Info(Loc.T(
+            $"Second PC set up: {result.LinkedFolders} folders linked, {result.SkippedFolders} skipped.",
+            $"Zweiter PC eingerichtet: {result.LinkedFolders} Ordner verlinkt, {result.SkippedFolders} übersprungen."));
         return result;
     }
 
-    // ---------------------------------------------------------------- Ordner hinzufügen / entfernen
+    // ---------------------------------------------------------------- Add / remove folders
 
-    /// <summary>Weitere Profilordner nachträglich ins Repository aufnehmen.</summary>
+    /// <summary>Adds more profile folders to the repository later on.</summary>
     public SetupResult AddMappings(AppSettings settings, IReadOnlyList<ProfileMapping> mappings)
     {
         ValidateBasics(settings);
@@ -242,20 +325,20 @@ public sealed class SetupService
         CheckForeignJunctions(states);
         var toLink = mappings.Where(m => states[m] != MappingState.Linked).ToList();
 
-        result.BackupZip = BackupBeforeLink(toLink, settings.RepoPath, "ordner-hinzufuegen", states);
+        result.BackupZip = BackupBeforeLink(toLink, settings.RepoPath, "add-folders", states);
         foreach (var m in toLink)
         {
             LinkCore(m, settings.RepoPath, states[m], targetWins: false);
             result.LinkedFolders++;
         }
-        RepoManifest.AddFolders(settings.RepoPath, mappings);
+        RepoManifest.AddFolders(settings.RepoPath, mappings, _detector);
         MergeMappings(settings, mappings);
         return result;
     }
 
     /// <summary>
-    /// Einzelne Ordner nicht mehr sichern: Junction entfernen und Inhalt an den Originalort
-    /// zurückkopieren. Der Stand im Repository bleibt erhalten.
+    /// Stops backing up single folders: removes the junction and copies the content back to the
+    /// original location. The state in the repository is kept.
     /// </summary>
     public void RemoveMappings(AppSettings settings, IReadOnlyList<ProfileMapping> mappings)
     {
@@ -269,11 +352,11 @@ public sealed class SetupService
         }
     }
 
-    // ---------------------------------------------------------------- Rückbau
+    // ---------------------------------------------------------------- Uninstall
 
     /// <summary>
-    /// Rückbau: alle Junctions entfernen und die Ordner wieder an den Originalort legen.
-    /// Das Repository (und damit der Verlauf) bleibt unangetastet.
+    /// Restore: removes all junctions and puts the folders back at their original location.
+    /// The repository (and with it the history) is left untouched.
     /// </summary>
     public int Uninstall(AppSettings settings)
     {
@@ -287,18 +370,22 @@ public sealed class SetupService
             count++;
         }
         settings.SetupCompleted = false;
-        _log.Info($"Rückbau abgeschlossen: {count} Ordner zurückgelegt. Repository bleibt unter {settings.RepoPath} erhalten.");
+        _log.Info(Loc.T(
+            $"Restore complete: {count} folders put back. The repository stays at {settings.RepoPath}.",
+            $"Rückbau abgeschlossen: {count} Ordner zurückgelegt. Repository bleibt unter {settings.RepoPath} erhalten."));
         return count;
     }
 
-    // ---------------------------------------------------------------- Kernoperationen
+    // ---------------------------------------------------------------- Core operations
 
     private void Unlink(ProfileMapping m, string repoPath)
     {
         var state = GetState(m, repoPath);
         if (state != MappingState.Linked)
         {
-            _log.Warn($"{m.DisplayName}: keine Junction auf das Repository vorhanden, nichts zurückzubauen.");
+            _log.Warn(Loc.T(
+                $"{m.DisplayName}: no junction to the repository, nothing to restore.",
+                $"{m.DisplayName}: keine Junction auf das Repository vorhanden, nichts zurückzubauen."));
             return;
         }
 
@@ -308,23 +395,25 @@ public sealed class SetupService
         {
             DirectoryCopy.Copy(target, m.OriginalPath);
             if (!DirectoryCopy.IsCopyComplete(target, m.OriginalPath))
-                throw new IOException("Kopie unvollständig.");
+                throw new IOException(Loc.T("Copy incomplete.", "Kopie unvollständig."));
         }
         catch (Exception ex)
         {
-            // Unvollständige Kopie (nur unsere eigenen Dateien) entfernen und Junction wiederherstellen.
+            // Remove the incomplete copy (only our own files) and restore the junction.
             if (Directory.Exists(m.OriginalPath) && !Junction.IsJunction(m.OriginalPath))
                 Directory.Delete(m.OriginalPath, recursive: true);
             Junction.Create(m.OriginalPath, target);
-            throw new SetupException($"{m.DisplayName} konnte nicht zurückgelegt werden: {ex.Message}", ex);
+            throw new SetupException(Loc.T(
+                $"{m.DisplayName} could not be restored: {ex.Message}",
+                $"{m.DisplayName} konnte nicht zurückgelegt werden: {ex.Message}"), ex);
         }
-        _log.Info($"Zurückgelegt: {m.DisplayName} → {m.OriginalPath}");
+        _log.Info(Loc.T($"Restored: {m.DisplayName} → {m.OriginalPath}", $"Zurückgelegt: {m.DisplayName} → {m.OriginalPath}"));
     }
 
     /// <summary>
-    /// Verlinkt einen Ordner. <paramref name="targetWins"/> = false: der lokale Ordner wird ins
-    /// Repository verschoben. true: der Repository-Stand bleibt, der lokale Ordner wird ersetzt.
-    /// In beiden Fällen muss vorher ein Backup angelegt worden sein.
+    /// Links a folder. <paramref name="targetWins"/> = false: the local folder is moved into the
+    /// repository. true: the repository state stays and the local folder is replaced.
+    /// In both cases a backup must have been made beforehand.
     /// </summary>
     private void LinkCore(ProfileMapping m, string repoPath, MappingState state, bool targetWins)
     {
@@ -335,32 +424,38 @@ public sealed class SetupService
         if (state == MappingState.Linked)
             return;
         if (state == MappingState.ForeignJunction)
-            throw new SetupException($"{original} ist bereits mit einem anderen Ort verknüpft.");
+            throw new SetupException(Loc.T(
+                $"{original} is already linked to a different location.",
+                $"{original} ist bereits mit einem anderen Ort verknüpft."));
         if (Directory.Exists(aside))
-            throw new SetupException($"Es liegt noch ein Ordner aus einem abgebrochenen Vorgang vor: {aside}. Bitte prüfen und entfernen.");
+            throw new SetupException(Loc.T(
+                $"A folder from an interrupted operation is still there: {aside}. Please check and remove it.",
+                $"Es liegt noch ein Ordner aus einem abgebrochenen Vorgang vor: {aside}. Bitte prüfen und entfernen."));
 
         if (state == MappingState.Missing)
         {
             Directory.CreateDirectory(target);
             Junction.Create(original, target);
-            _log.Info($"Verlinkt (neu angelegt): {m.DisplayName}");
+            _log.Info(Loc.T($"Linked (newly created): {m.DisplayName}", $"Verlinkt (neu angelegt): {m.DisplayName}"));
             return;
         }
 
         if (!targetWins)
         {
             if (Directory.Exists(target) && !DirectoryCopy.IsEmpty(target))
-                Directory.Delete(target, recursive: true); // vorher gesichert (BackupBeforeLink)
+                Directory.Delete(target, recursive: true); // backed up before (BackupBeforeLink)
             DirectoryCopy.Copy(original, target);
             if (!DirectoryCopy.IsCopyComplete(original, target))
-                throw new SetupException($"Kopieren von {original} nach {target} war unvollständig. Es wurde nichts verändert.");
+                throw new SetupException(Loc.T(
+                    $"Copying {original} to {target} was incomplete. Nothing was changed.",
+                    $"Kopieren von {original} nach {target} war unvollständig. Es wurde nichts verändert."));
         }
         else
         {
             Directory.CreateDirectory(target);
         }
 
-        // Original zur Seite legen (gleiches Laufwerk → atomar), Junction anlegen, erst dann löschen.
+        // Move the original aside (same drive → atomic), create the junction, only then delete.
         Directory.Move(original, aside);
         try
         {
@@ -371,10 +466,12 @@ public sealed class SetupService
             if (Junction.IsJunction(original))
                 Junction.Remove(original);
             Directory.Move(aside, original);
-            throw new SetupException($"Junction für {m.DisplayName} konnte nicht angelegt werden: {ex.Message}", ex);
+            throw new SetupException(Loc.T(
+                $"Could not create the junction for {m.DisplayName}: {ex.Message}",
+                $"Junction für {m.DisplayName} konnte nicht angelegt werden: {ex.Message}"), ex);
         }
         Directory.Delete(aside, recursive: true);
-        _log.Info($"Verlinkt: {original} → {target}");
+        _log.Info(Loc.T($"Linked: {original} → {target}", $"Verlinkt: {original} → {target}"));
     }
 
     private string? BackupBeforeLink(
@@ -396,22 +493,24 @@ public sealed class SetupService
     {
         var foreign = states.Where(s => s.Value == MappingState.ForeignJunction).Select(s => s.Key.OriginalPath).ToList();
         if (foreign.Count > 0)
-            throw new SetupException("Diese Ordner sind bereits mit einem anderen Ort verknüpft:\n" + string.Join("\n", foreign));
+            throw new SetupException(Loc.T(
+                "These folders are already linked to a different location:\n",
+                "Diese Ordner sind bereits mit einem anderen Ort verknüpft:\n") + string.Join("\n", foreign));
     }
 
     private static void ValidateBasics(AppSettings settings)
     {
         if (string.IsNullOrWhiteSpace(settings.RepoPath))
-            throw new SetupException("Kein Repository-Ordner angegeben.");
+            throw new SetupException(Loc.T("No repository folder specified.", "Kein Repository-Ordner angegeben."));
         if (!Path.IsPathFullyQualified(settings.RepoPath))
-            throw new SetupException("Der Repository-Ordner muss ein vollständiger Pfad sein.");
+            throw new SetupException(Loc.T("The repository folder must be a full path.", "Der Repository-Ordner muss ein vollständiger Pfad sein."));
         if (string.IsNullOrWhiteSpace(settings.Branch))
-            throw new SetupException("Kein Branch angegeben.");
+            throw new SetupException(Loc.T("No branch specified.", "Kein Branch angegeben."));
     }
 
     private static void WriteGitAttributes(string repoPath)
     {
-        // Profildateien byte-genau speichern (keine CRLF/LF-Umwandlung).
+        // Store profile files byte for byte (no CRLF/LF conversion).
         var file = Path.Combine(repoPath, ".gitattributes");
         if (!File.Exists(file))
             File.WriteAllText(file, "* -text\n");

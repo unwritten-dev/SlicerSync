@@ -3,14 +3,14 @@ using SlicerSync.Core.Config;
 using SlicerSync.Core.FileSystem;
 using SlicerSync.Core.Git;
 using SlicerSync.Core.History;
-using SlicerSync.Core.Logging;
+using SlicerSync.Core.Hosting;
 using SlicerSync.Core.Setup;
 using SlicerSync.Core.Slicers;
 using SlicerSync.Core.Sync;
 
 namespace SlicerSync.App;
 
-/// <summary>Hält alle Dienste der Kernbibliothek zusammen.</summary>
+/// <summary>Holds all services of the core library together.</summary>
 public sealed class AppServices
 {
     private volatile AppSettings _settings;
@@ -21,6 +21,7 @@ public sealed class AppServices
         Log = new FileLogger(Paths.LogFile);
         Store = new SettingsStore(Paths.SettingsFile, Log);
         _settings = Store.Load();
+        Loc.SetLanguage(_settings.Language);
         Backups = new BackupService(Paths.BackupDir, Log);
         Guard = new ProcessGuard();
         Detector = new SlicerDetector(Paths);
@@ -34,7 +35,7 @@ public sealed class AppServices
     public ProcessGuard Guard { get; }
     public SlicerDetector Detector { get; }
 
-    /// <summary>Aktuelle Einstellungen. Wird nur als Ganzes ersetzt (Formulare arbeiten auf Kopien).</summary>
+    /// <summary>Current settings. Only ever replaced as a whole (forms work on copies).</summary>
     public AppSettings Settings => _settings;
 
     public GitRunner? Git { get; private set; }
@@ -42,7 +43,10 @@ public sealed class AppServices
 
     public bool GitAvailable => Git != null;
 
-    /// <summary>Sucht git.exe erneut (z. B. nachdem der Nutzer Git installiert hat).</summary>
+    /// <summary>Raised when a new <see cref="SyncService"/> was created.</summary>
+    public event Action? SyncReplaced;
+
+    /// <summary>Looks for git.exe again (e.g. after the user installed Git).</summary>
     public bool RefreshGit()
     {
         var exe = GitLocator.Find(_settings.GitPath);
@@ -57,13 +61,10 @@ public sealed class AppServices
             Git = new GitRunner(exe);
             Sync = new SyncService(() => _settings, Git, Log);
             SyncReplaced?.Invoke();
-            Log.Info($"Git gefunden: {exe}");
+            Log.Info(Loc.T($"Git found: {exe}", $"Git gefunden: {exe}"));
         }
         return true;
     }
-
-    /// <summary>Wird ausgelöst, wenn ein neuer <see cref="SyncService"/> erzeugt wurde.</summary>
-    public event Action? SyncReplaced;
 
     public void ApplySettings(AppSettings settings)
     {
@@ -76,9 +77,13 @@ public sealed class AppServices
 
     public HistoryService CreateHistory() => new(() => _settings, RequireGit(), Backups, Log);
 
-    /// <summary>Führt eine Datei-Operation aus, während sicher kein Sync läuft.</summary>
+    public RemoteCreator CreateRemoteCreator() => new(RequireGit(), Log);
+
+    /// <summary>Runs a file operation while it is guaranteed that no sync is running.</summary>
     public T Exclusive<T>(Func<T> action) => Sync != null ? Sync.RunExclusive(action) : action();
 
     private GitRunner RequireGit() =>
-        Git ?? throw new InvalidOperationException("Git wurde nicht gefunden. Bitte Git for Windows installieren.");
+        Git ?? throw new InvalidOperationException(Loc.T(
+            "Git was not found. Please install Git for Windows.",
+            "Git wurde nicht gefunden. Bitte Git for Windows installieren."));
 }

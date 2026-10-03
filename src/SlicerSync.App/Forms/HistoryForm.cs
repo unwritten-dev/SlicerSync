@@ -1,8 +1,9 @@
+using SlicerSync.Core;
 using SlicerSync.Core.Git;
 
 namespace SlicerSync.App.Forms;
 
-/// <summary>Letzte Commits mit geänderten Dateien; einzelne Datei auf einen älteren Stand zurücksetzen.</summary>
+/// <summary>Recent commits with changed files; restore a single file to an older state.</summary>
 public sealed class HistoryForm : Form
 {
     private readonly AppServices _services;
@@ -14,12 +15,12 @@ public sealed class HistoryForm : Form
     {
         Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true, MultiSelect = false, HideSelection = false,
     };
-    private readonly Button _restore = new() { Text = "Datei auf diesen Stand zurücksetzen…", AutoSize = true, Enabled = false };
+    private readonly Button _restore = new() { Text = Loc.T("Restore file to this state…", "Datei auf diesen Stand zurücksetzen…"), AutoSize = true, Enabled = false };
 
     public HistoryForm(AppServices services)
     {
         _services = services;
-        Text = "SlicerSync – Verlauf";
+        Text = Loc.T("SlicerSync – History", "SlicerSync – Verlauf");
         Icon = TrayIcons.LoadAppIcon();
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -27,20 +28,20 @@ public sealed class HistoryForm : Form
         MinimumSize = new Size(600, 400);
         Font = SystemFonts.MessageBoxFont;
 
-        _commits.Columns.Add("Datum", 130);
-        _commits.Columns.Add("Autor", 160);
-        _commits.Columns.Add("Nachricht", 420);
+        _commits.Columns.Add(Loc.T("Date", "Datum"), 130);
+        _commits.Columns.Add(Loc.T("Author", "Autor"), 160);
+        _commits.Columns.Add(Loc.T("Message", "Nachricht"), 420);
         _commits.Columns.Add("Commit", 80);
-        _files.Columns.Add("Änderung", 90);
-        _files.Columns.Add("Datei", 680);
+        _files.Columns.Add(Loc.T("Change", "Änderung"), 90);
+        _files.Columns.Add(Loc.T("File", "Datei"), 680);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
         Load += (_, _) => split.SplitterDistance = split.Height / 2;
         split.Panel1.Controls.Add(_commits);
         split.Panel2.Controls.Add(_files);
 
-        var refresh = new Button { Text = "Aktualisieren", AutoSize = true };
-        var close = new Button { Text = "Schließen", AutoSize = true, DialogResult = DialogResult.Cancel };
+        var refresh = new Button { Text = Loc.T("Refresh", "Aktualisieren"), AutoSize = true };
+        var close = new Button { Text = Loc.T("Close", "Schließen"), AutoSize = true, DialogResult = DialogResult.Cancel };
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(8), FlowDirection = FlowDirection.RightToLeft };
         buttons.Controls.AddRange(new Control[] { close, refresh, _restore });
 
@@ -66,7 +67,7 @@ public sealed class HistoryForm : Form
             _commits.Items.Clear();
             foreach (var c in commits)
             {
-                var item = new ListViewItem(c.Date.LocalDateTime.ToString("dd.MM.yyyy HH:mm")) { Tag = c };
+                var item = new ListViewItem(Loc.DateTime(c.Date.LocalDateTime)) { Tag = c };
                 item.SubItems.Add(c.Author);
                 item.SubItems.Add(c.Message);
                 item.SubItems.Add(c.ShortHash);
@@ -80,8 +81,8 @@ public sealed class HistoryForm : Form
         }
         catch (Exception ex)
         {
-            _services.Log.Error("Verlauf konnte nicht geladen werden", ex);
-            Ui.Error(this, "Der Verlauf konnte nicht geladen werden:\n" + Ui.Describe(ex));
+            _services.Log.Error(Loc.T("History could not be loaded", "Verlauf konnte nicht geladen werden"), ex);
+            Ui.Error(this, Loc.T("The history could not be loaded:\n", "Der Verlauf konnte nicht geladen werden:\n") + Ui.Describe(ex));
         }
     }
 
@@ -113,26 +114,33 @@ public sealed class HistoryForm : Form
             return;
 
         var stateText = file.Status == "D"
-            ? "den Stand vor dem Löschen"
-            : $"den Stand vom {commit.Date.LocalDateTime:dd.MM.yyyy HH:mm}";
+            ? Loc.T("the state before it was deleted", "den Stand vor dem Löschen")
+            : Loc.T($"the state of {Loc.DateTime(commit.Date.LocalDateTime)}", $"den Stand vom {Loc.DateTime(commit.Date.LocalDateTime)}");
         var running = _services.Guard.RunningSlicers();
         var warning = running.Count > 0
-            ? $"\n\nAchtung: {string.Join(", ", running)} ist geöffnet. Bitte den Slicer nach dem Zurücksetzen neu starten, " +
-              "sonst überschreibt er die Datei eventuell beim nächsten Speichern."
+            ? Loc.T(
+                $"\n\nCaution: {string.Join(", ", running)} is open. Please restart the slicer after restoring, " +
+                "otherwise it may overwrite the file the next time it saves.",
+                $"\n\nAchtung: {string.Join(", ", running)} ist geöffnet. Bitte den Slicer nach dem Zurücksetzen neu starten, " +
+                "sonst überschreibt er die Datei eventuell beim nächsten Speichern.")
             : "";
-        if (!Ui.Confirm(this, $"„{file.Path}“ auf {stateText} zurücksetzen?\n\nDie aktuelle Version wird vorher als ZIP gesichert.{warning}"))
+        if (!Ui.Confirm(this, Loc.T(
+                $"Restore \"{file.Path}\" to {stateText}?\n\nThe current version is backed up as ZIP first.{warning}",
+                $"„{file.Path}“ auf {stateText} zurücksetzen?\n\nDie aktuelle Version wird vorher als ZIP gesichert.{warning}")))
             return;
 
         try
         {
             var history = _services.CreateHistory();
             var backup = await Ui.RunBusy(this, () => _services.Exclusive(() => history.RestoreFile(commit.Hash, file.Path)));
-            Ui.Info(this, "Die Datei wurde zurückgesetzt. Die Änderung wird beim nächsten Sync gesichert." +
-                          (backup != null ? $"\n\nVorherige Version gesichert in:\n{backup}" : ""));
+            Ui.Info(this, Loc.T(
+                "The file was restored. The change is backed up on the next sync.",
+                "Die Datei wurde zurückgesetzt. Die Änderung wird beim nächsten Sync gesichert.") +
+                (backup != null ? Loc.T($"\n\nPrevious version saved in:\n{backup}", $"\n\nVorherige Version gesichert in:\n{backup}") : ""));
         }
         catch (Exception ex)
         {
-            _services.Log.Error("Datei konnte nicht zurückgesetzt werden", ex);
+            _services.Log.Error(Loc.T("File could not be restored", "Datei konnte nicht zurückgesetzt werden"), ex);
             Ui.Error(this, Ui.Describe(ex));
         }
     }

@@ -1,11 +1,11 @@
-using System.Drawing.Drawing2D;
+﻿using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 
 namespace SlicerSync.App;
 
 public enum TrayState { Ok, Running, Error, NotConfigured }
 
-/// <summary>App-Icon plus farbiger Statuspunkt (grün = ok, blau = läuft, rot = Fehler, grau = nicht eingerichtet).</summary>
+/// <summary>App icon plus a colored status dot (green = ok, yellow = running, red = error, grey = not set up).</summary>
 public sealed class TrayIcons : IDisposable
 {
     private readonly Dictionary<TrayState, Icon> _icons = new();

@@ -1,7 +1,7 @@
-﻿; Inno-Setup-Skript für SlicerSync.
-; Installiert die App und lädt bei Bedarf Git for Windows (inkl. Git Credential Manager)
-; herunter und installiert es still. Wird von build.ps1 aufgerufen, das die aktuelle
-; Git-Version per /D übergibt; die Werte unten sind nur der Rückfall.
+﻿; Inno Setup script for SlicerSync.
+; Installs the app and, if needed, downloads Git for Windows (including the Git Credential Manager)
+; and installs it silently. Called by build.ps1, which passes the current Git version via /D;
+; the values below are only the fallback.
 
 #ifndef AppVersion
   #define AppVersion "1.0.0"
@@ -21,11 +21,13 @@ AppId={{6F1C2B7E-5A4D-4C1B-9E3A-2D7F5C8B1A90}
 AppName=SlicerSync
 AppVersion={#AppVersion}
 AppPublisher=SlicerSync
+AppPublisherURL=https://github.com/unwritten-dev/SlicerSync
+AppSupportURL=https://github.com/unwritten-dev/SlicerSync/issues
 DefaultDirName={autopf}\SlicerSync
 DefaultGroupName=SlicerSync
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
-; Der HKCU-Eintrag dient nur dem Aufräumen des Autostarts (siehe [Registry]).
+; The HKCU entry below only cleans up the autostart value on uninstall.
 UsedUserAreasWarning=no
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -38,16 +40,47 @@ SolidCompression=yes
 WizardStyle=modern
 CloseApplications=yes
 LicenseFile=..\LICENSE
+; English is the default; the user can pick German in the language dialog.
+ShowLanguageDialog=yes
+LanguageDetectionMethod=none
 
 [Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 
+[CustomMessages]
+english.DesktopIcon=Create a desktop shortcut
+english.AdditionalIcons=Additional shortcuts:
+english.LaunchApp=Start SlicerSync now
+english.DownloadingGit=Downloading Git for Windows …
+english.GitWillBeInstalled=Git for Windows {#GitVersion} (including the Git Credential Manager) will be downloaded and installed,
+english.GitWillBeInstalled2=because it is not installed on this PC yet.
+english.GitAlreadyInstalled=Git for Windows is already installed.
+english.GitDownloadFailed=Git for Windows could not be downloaded:
+english.GitDownloadContinue=Install SlicerSync anyway? Git then has to be installed manually later (https://git-scm.com/download/win).
+english.InstallingGit=Installing Git for Windows … (this can take a minute)
+english.GitInstallFailed=Installing Git for Windows failed (code %1). Please install Git manually: https://git-scm.com/download/win
+english.UninstallNote=Note: uninstalling removes the program only.%n%nThe profile folders stay linked to the repository folder via junctions, so the slicers keep working. If you want the profiles back at their original location, run "Restore (undo setup)…" from the tray menu first.%n%nUninstall now?
+german.DesktopIcon=Desktop-Verknüpfung erstellen
+german.AdditionalIcons=Zusätzliche Verknüpfungen:
+german.LaunchApp=SlicerSync jetzt starten
+german.DownloadingGit=Git for Windows wird heruntergeladen …
+german.GitWillBeInstalled=Git for Windows {#GitVersion} (inkl. Git Credential Manager) wird heruntergeladen und installiert,
+german.GitWillBeInstalled2=weil es auf diesem PC noch nicht vorhanden ist.
+german.GitAlreadyInstalled=Git for Windows ist bereits installiert.
+german.GitDownloadFailed=Git for Windows konnte nicht heruntergeladen werden:
+german.GitDownloadContinue=SlicerSync trotzdem installieren? Git muss dann später manuell installiert werden (https://git-scm.com/download/win).
+german.InstallingGit=Git for Windows wird installiert … (kann eine Minute dauern)
+german.GitInstallFailed=Die Installation von Git for Windows ist fehlgeschlagen (Code %1). Bitte Git manuell installieren: https://git-scm.com/download/win
+german.UninstallNote=Hinweis: Die Deinstallation entfernt nur das Programm.%n%nDie Profilordner bleiben per Junction mit dem Repository-Ordner verbunden, die Slicer funktionieren weiter. Wer die Profile wieder an ihren Originalort legen möchte, sollte vorher im Tray-Menü „Rückbau…“ ausführen.%n%nJetzt deinstallieren?
+
 [Tasks]
-Name: "desktopicon"; Description: "Desktop-Verknüpfung erstellen"; GroupDescription: "Zusätzliche Verknüpfungen:"; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
 Source: "..\publish\SlicerSync.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
+Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\README.de.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
@@ -55,11 +88,11 @@ Name: "{group}\SlicerSync"; Filename: "{app}\SlicerSync.exe"
 Name: "{autodesktop}\SlicerSync"; Filename: "{app}\SlicerSync.exe"; Tasks: desktopicon
 
 [Registry]
-; Autostart-Eintrag legt die App selbst an (Einstellung „Mit Windows starten“); beim Deinstallieren entfernen.
+; The app itself creates the autostart value ("Start with Windows"); remove it on uninstall.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "SlicerSync"; Flags: uninsdeletevalue dontcreatekey
 
 [Run]
-Filename: "{app}\SlicerSync.exe"; Description: "SlicerSync jetzt starten"; Flags: nowait postinstall skipifsilent runasoriginaluser
+Filename: "{app}\SlicerSync.exe"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/IM SlicerSync.exe /F"; Flags: runhidden; RunOnceId: "StopSlicerSync"
@@ -88,7 +121,7 @@ end;
 procedure InitializeWizard;
 begin
   GitNeeded := not GitInstalled;
-  DownloadPage := CreateDownloadPage(SetupMessage(msgWizardPreparing), 'Git for Windows wird heruntergeladen …', nil);
+  DownloadPage := CreateDownloadPage(SetupMessage(msgWizardPreparing), CustomMessage('DownloadingGit'), nil);
 end;
 
 function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoTypeInfo, MemoComponentsInfo, MemoGroupInfo, MemoTasksInfo: String): String;
@@ -97,10 +130,9 @@ begin
   if MemoTasksInfo <> '' then
     Result := Result + MemoTasksInfo + NewLine + NewLine;
   if GitNeeded then
-    Result := Result + 'Git for Windows {#GitVersion} (inkl. Git Credential Manager) wird heruntergeladen und installiert,' + NewLine +
-              Space + 'weil es auf diesem PC noch nicht vorhanden ist.'
+    Result := Result + CustomMessage('GitWillBeInstalled') + NewLine + Space + CustomMessage('GitWillBeInstalled2')
   else
-    Result := Result + 'Git for Windows ist bereits installiert.';
+    Result := Result + CustomMessage('GitAlreadyInstalled');
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -119,9 +151,8 @@ begin
         if DownloadPage.AbortedByUser then
           Result := False
         else
-          Result := MsgBox('Git for Windows konnte nicht heruntergeladen werden:' + #13#10 + GetExceptionMessage + #13#10#13#10 +
-                           'SlicerSync trotzdem installieren? Git muss dann später manuell installiert werden ' +
-                           '(https://git-scm.com/download/win).', mbError, MB_YESNO) = IDYES;
+          Result := MsgBox(CustomMessage('GitDownloadFailed') + #13#10 + GetExceptionMessage + #13#10#13#10 +
+                           CustomMessage('GitDownloadContinue'), mbError, MB_YESNO) = IDYES;
       end;
     finally
       DownloadPage.Hide;
@@ -135,14 +166,13 @@ var
 begin
   if (CurStep = ssInstall) and GitDownloaded then
   begin
-    WizardForm.StatusLabel.Caption := 'Git for Windows wird installiert … (kann eine Minute dauern)';
+    WizardForm.StatusLabel.Caption := CustomMessage('InstallingGit');
     WizardForm.ProgressGauge.Style := npbstMarquee;
     try
       if not Exec(ExpandConstant('{tmp}\Git-Setup.exe'),
                   '/VERYSILENT /NORESTART /NOCANCEL /SP- /SUPPRESSMSGBOXES /CLOSEAPPLICATIONS',
                   '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
-        MsgBox('Die Installation von Git for Windows ist fehlgeschlagen (Code ' + IntToStr(ResultCode) + ').' + #13#10 +
-               'Bitte Git manuell installieren: https://git-scm.com/download/win', mbError, MB_OK);
+        MsgBox(FmtMessage(CustomMessage('GitInstallFailed'), [IntToStr(ResultCode)]), mbError, MB_OK);
     finally
       WizardForm.ProgressGauge.Style := npbstNormal;
     end;
@@ -151,8 +181,5 @@ end;
 
 function InitializeUninstall: Boolean;
 begin
-  Result := MsgBox('Hinweis: Die Deinstallation entfernt nur das Programm.' + #13#10#13#10 +
-                   'Die Profilordner bleiben per Junction mit dem Repository-Ordner verbunden, die Slicer funktionieren weiter. ' +
-                   'Wer die Profile wieder an ihren Originalort legen möchte, sollte vorher im Tray-Menü „Rückbau…“ ausführen.' + #13#10#13#10 +
-                   'Jetzt deinstallieren?', mbConfirmation, MB_YESNO) = IDYES;
+  Result := MsgBox(CustomMessage('UninstallNote'), mbConfirmation, MB_YESNO) = IDYES;
 end;

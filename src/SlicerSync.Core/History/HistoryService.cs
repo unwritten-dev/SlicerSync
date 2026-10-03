@@ -5,7 +5,7 @@ using SlicerSync.Core.Logging;
 
 namespace SlicerSync.Core.History;
 
-/// <summary>Verlauf anzeigen und einzelne Profildateien auf einen älteren Stand zurücksetzen.</summary>
+/// <summary>Shows the history and restores single profile files to an older state.</summary>
 public sealed class HistoryService
 {
     private readonly Func<AppSettings> _settings;
@@ -26,9 +26,9 @@ public sealed class HistoryService
     public IReadOnlyList<CommitInfo> GetCommits(int maxCount = 100) => Repo.Log(maxCount);
 
     /// <summary>
-    /// Setzt eine Datei auf den Stand nach <paramref name="commit"/> zurück. Wurde sie in diesem
-    /// Commit gelöscht, wird der Stand davor wiederhergestellt. Die aktuelle Datei wird vorher gesichert.
-    /// Gibt den Pfad der Sicherung zurück (null, wenn es die Datei aktuell nicht gibt).
+    /// Restores a file to its state after <paramref name="commit"/>. If the file was deleted in that
+    /// commit, the state before is restored. The current file is backed up first.
+    /// Returns the backup path (null if the file does not exist at the moment).
     /// </summary>
     public string? RestoreFile(string commit, string repoRelativePath)
     {
@@ -38,16 +38,18 @@ public sealed class HistoryService
         {
             source = commit + "~1";
             if (!repo.FileExistsInCommit(source, repoRelativePath))
-                throw new InvalidOperationException($"Die Datei {repoRelativePath} ist in diesem Commit nicht vorhanden.");
+                throw new InvalidOperationException(Loc.T(
+                    $"The file {repoRelativePath} does not exist in this commit.",
+                    $"Die Datei {repoRelativePath} ist in diesem Commit nicht vorhanden."));
         }
 
         var fullPath = Path.Combine(repo.Path, repoRelativePath.Replace('/', '\\'));
         string? backup = null;
         if (File.Exists(fullPath))
-            backup = _backups.CreateBackup("datei-wiederherstellen", new[] { (fullPath, repoRelativePath) });
+            backup = _backups.CreateBackup("restore-file", new[] { (fullPath, repoRelativePath) });
 
         repo.RestoreFile(source, repoRelativePath);
-        _log.Info($"Datei wiederhergestellt: {repoRelativePath} (Stand {source})");
+        _log.Info(Loc.T($"File restored: {repoRelativePath} (state {source})", $"Datei wiederhergestellt: {repoRelativePath} (Stand {source})"));
         return backup;
     }
 }

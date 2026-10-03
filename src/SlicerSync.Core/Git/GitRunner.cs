@@ -7,7 +7,7 @@ public sealed record GitResult(int ExitCode, string StdOut, string StdErr)
 {
     public bool Success => ExitCode == 0;
 
-    /// <summary>Fehlertext für Meldungen: stderr, sonst stdout.</summary>
+    /// <summary>Text for error messages: stderr, falling back to stdout.</summary>
     public string ErrorText => string.IsNullOrWhiteSpace(StdErr) ? StdOut.Trim() : StdErr.Trim();
 }
 
@@ -18,7 +18,7 @@ public sealed class GitException : Exception
     public GitResult? Result { get; }
 }
 
-/// <summary>Ruft die installierte git.exe auf. Zugangsdaten verwaltet ausschließlich Git selbst (Credential Manager).</summary>
+/// <summary>Runs the installed git.exe. Credentials are handled by Git itself (Git Credential Manager) only.</summary>
 public sealed class GitRunner
 {
     public static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(10);
@@ -30,12 +30,15 @@ public sealed class GitRunner
 
     public string GitExe { get; }
 
-    /// <summary>Zusätzliche Umgebungsvariablen (z. B. für Tests: isolierte globale Git-Konfiguration).</summary>
+    /// <summary>Extra environment variables (e.g. an isolated global Git config for tests).</summary>
     public Dictionary<string, string?> Environment { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public GitResult Run(string? workDir, params string[] args) => Run(workDir, DefaultTimeout, args);
 
-    public GitResult Run(string? workDir, TimeSpan timeout, params string[] args)
+    public GitResult Run(string? workDir, TimeSpan timeout, params string[] args) => RunWithInput(workDir, timeout, null, args);
+
+    /// <summary>Like <see cref="Run(string?, TimeSpan, string[])"/>, but writes <paramref name="input"/> to stdin.</summary>
+    public GitResult RunWithInput(string? workDir, TimeSpan timeout, string? input, params string[] args)
     {
         var psi = new ProcessStartInfo(GitExe)
         {
@@ -50,8 +53,8 @@ public sealed class GitRunner
         if (workDir != null)
             psi.WorkingDirectory = workDir;
 
-        // Englische, stabile Ausgaben; keine Abfragen im (nicht vorhandenen) Terminal.
-        // Der Credential Manager zeigt bei Bedarf sein eigenes Anmeldefenster.
+        // Stable English output; no prompts in the (non-existent) terminal.
+        // The Credential Manager shows its own sign-in window when needed.
         psi.Environment["LC_ALL"] = "C";
         psi.Environment["LANG"] = "C";
         psi.Environment["GIT_TERMINAL_PROMPT"] = "0";
@@ -70,17 +73,28 @@ public sealed class GitRunner
         }
         catch (Exception ex)
         {
-            throw new GitException($"Git konnte nicht gestartet werden ({GitExe}): {ex.Message}");
+            throw new GitException(Loc.T(
+                $"Could not start Git ({GitExe}): {ex.Message}",
+                $"Git konnte nicht gestartet werden ({GitExe}): {ex.Message}"));
         }
 
+        if (input != null)
+        {
+            // Write without BOM: Git reads stdin line by line as UTF-8.
+            var bytes = new UTF8Encoding(false).GetBytes(input);
+            process.StandardInput.BaseStream.Write(bytes);
+            process.StandardInput.BaseStream.Flush();
+        }
         process.StandardInput.Close();
         var stdout = process.StandardOutput.ReadToEndAsync();
         var stderr = process.StandardError.ReadToEndAsync();
 
         if (!process.WaitForExit(timeout))
         {
-            try { process.Kill(entireProcessTree: true); } catch { /* bereits beendet */ }
-            throw new GitException($"Zeitüberschreitung bei „git {string.Join(' ', args)}“.");
+            try { process.Kill(entireProcessTree: true); } catch { /* already exited */ }
+            throw new GitException(Loc.T(
+                $"Timeout while running \"git {string.Join(' ', args)}\".",
+                $"Zeitüberschreitung bei „git {string.Join(' ', args)}“."));
         }
         process.WaitForExit();
 
@@ -91,7 +105,9 @@ public sealed class GitRunner
     {
         var result = Run(workDir, args);
         if (!result.Success)
-            throw new GitException($"git {args.FirstOrDefault()} fehlgeschlagen: {result.ErrorText}", result);
+            throw new GitException(Loc.T(
+                $"git {args.FirstOrDefault()} failed: {result.ErrorText}",
+                $"git {args.FirstOrDefault()} fehlgeschlagen: {result.ErrorText}"), result);
         return result;
     }
 }

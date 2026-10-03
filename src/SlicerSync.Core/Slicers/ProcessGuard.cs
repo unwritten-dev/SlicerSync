@@ -2,17 +2,9 @@ using System.Diagnostics;
 
 namespace SlicerSync.Core.Slicers;
 
-/// <summary>Prüft, ob ein Slicer läuft (dann dürfen Profilordner nicht verschoben werden).</summary>
+/// <summary>Checks whether a known slicer is running (profile folders must not be moved then).</summary>
 public sealed class ProcessGuard
 {
-    private static readonly (string Process, string Name)[] Known =
-    {
-        ("orca-slicer", "Orca Slicer"),
-        ("OrcaSlicer", "Orca Slicer"),
-        ("prusa-slicer", "PrusaSlicer"),
-        ("PrusaSlicer", "PrusaSlicer"),
-    };
-
     private readonly Func<IEnumerable<string>> _processNames;
 
     public ProcessGuard(Func<IEnumerable<string>>? processNames = null)
@@ -23,7 +15,10 @@ public sealed class ProcessGuard
     public IReadOnlyList<string> RunningSlicers()
     {
         var running = new HashSet<string>(_processNames(), StringComparer.OrdinalIgnoreCase);
-        return Known.Where(k => running.Contains(k.Process)).Select(k => k.Name).Distinct().ToList();
+        return SlicerCatalog.All
+            .Where(d => d.ProcessNames.Any(running.Contains))
+            .Select(d => d.DisplayName)
+            .ToList();
     }
 
     public void EnsureSlicersClosed()
@@ -37,7 +32,7 @@ public sealed class ProcessGuard
 public sealed class SlicerRunningException : Exception
 {
     public SlicerRunningException(IReadOnlyList<string> slicers)
-        : base($"Bitte zuerst schließen: {string.Join(", ", slicers)}")
+        : base(Loc.T($"Please close first: {string.Join(", ", slicers)}", $"Bitte zuerst schließen: {string.Join(", ", slicers)}"))
     {
         Slicers = slicers;
     }

@@ -3,8 +3,8 @@ using SlicerSync.Core.Config;
 namespace SlicerSync.Core.Slicers;
 
 /// <summary>
-/// slicersync.json im Repository: welche Profilordner gesichert werden. Damit kann ein
-/// zweiter PC die Zuordnungen auch für (noch) leere Ordner übernehmen.
+/// slicersync.json in the repository: which profile folders are backed up. Lets a second PC
+/// take over the mappings even for folders that are (still) empty, and custom folders.
 /// </summary>
 public sealed class RepoManifest
 {
@@ -18,11 +18,13 @@ public sealed class RepoManifest
         public string Slicer { get; set; } = "";
         public string ProfileSet { get; set; } = "";
         public string Folder { get; set; } = "";
+        /// <summary>Custom folders only: original location with %APPDATA%/%LOCALAPPDATA%/%USERPROFILE% tokens.</summary>
+        public string Path { get; set; } = "";
     }
 
     public static RepoManifest? Read(string repoPath)
     {
-        var file = Path.Combine(repoPath, FileName);
+        var file = System.IO.Path.Combine(repoPath, FileName);
         if (!File.Exists(file))
             return null;
         try
@@ -35,8 +37,8 @@ public sealed class RepoManifest
         }
     }
 
-    /// <summary>Ergänzt die Liste um die angegebenen Ordner (entfernt nie Einträge anderer PCs).</summary>
-    public static void AddFolders(string repoPath, IEnumerable<ProfileMapping> mappings)
+    /// <summary>Adds the given folders to the list (never removes entries of other PCs).</summary>
+    public static void AddFolders(string repoPath, IEnumerable<ProfileMapping> mappings, SlicerDetector detector)
     {
         var manifest = Read(repoPath) ?? new RepoManifest();
         foreach (var m in mappings)
@@ -46,8 +48,14 @@ public sealed class RepoManifest
                 string.Equals(f.ProfileSet, m.ProfileSet, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(f.Folder, m.Folder, StringComparison.OrdinalIgnoreCase));
             if (!exists)
-                manifest.Folders.Add(new ManifestFolder { Slicer = m.Slicer, ProfileSet = m.ProfileSet, Folder = m.Folder });
+                manifest.Folders.Add(new ManifestFolder
+                {
+                    Slicer = m.Slicer,
+                    ProfileSet = m.ProfileSet,
+                    Folder = m.Folder,
+                    Path = m.IsCustom ? detector.ToPathTemplate(m.OriginalPath) : "",
+                });
         }
-        File.WriteAllText(Path.Combine(repoPath, FileName), SettingsStore.Serialize(manifest));
+        File.WriteAllText(System.IO.Path.Combine(repoPath, FileName), SettingsStore.Serialize(manifest));
     }
 }

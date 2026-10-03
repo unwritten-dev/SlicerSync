@@ -4,7 +4,7 @@ using SlicerSync.Core.Logging;
 
 namespace SlicerSync.Core.Config;
 
-/// <summary>Lädt und speichert <see cref="AppSettings"/> als JSON.</summary>
+/// <summary>Loads and saves <see cref="AppSettings"/> as JSON.</summary>
 public sealed class SettingsStore
 {
     private static readonly JsonSerializerOptions Options = new()
@@ -35,10 +35,12 @@ public sealed class SettingsStore
         }
         catch (JsonException ex)
         {
-            // Defekte Datei nicht überschreiben, sondern zur Seite legen.
-            var broken = _file + $".defekt-{DateTime.Now:yyyyMMdd-HHmmss}";
+            // Never overwrite a broken file; move a copy aside instead.
+            var broken = _file + $".broken-{DateTime.Now:yyyyMMdd-HHmmss}";
             File.Copy(_file, broken, overwrite: true);
-            _log.Error($"Einstellungen konnten nicht gelesen werden, Kopie unter {broken}. Standardwerte werden verwendet.", ex);
+            _log.Error(Loc.T(
+                $"Settings could not be read; a copy was saved as {broken}. Using defaults.",
+                $"Einstellungen konnten nicht gelesen werden, Kopie unter {broken}. Standardwerte werden verwendet."), ex);
             return new AppSettings();
         }
     }

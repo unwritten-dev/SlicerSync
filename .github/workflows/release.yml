@@ -1,0 +1,39 @@
+name: Release
+
+# Push a tag like v1.2.0 to build the installer and publish a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Build
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./build.ps1 -Version ("${{ github.ref_name }}".TrimStart('v'))
+
+      - name: Create release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          Copy-Item publish/SlicerSync.exe "dist/SlicerSync-$version-portable.exe"
+          gh release create "${{ github.ref_name }}" dist/*.exe --title "SlicerSync $version" --notes-file CHANGELOG.md

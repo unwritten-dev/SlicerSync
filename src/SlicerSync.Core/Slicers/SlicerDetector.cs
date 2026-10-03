@@ -2,113 +2,133 @@ using SlicerSync.Core.Config;
 
 namespace SlicerSync.Core.Slicers;
 
-public sealed record SlicerInfo(string Kind, string DisplayName, bool Installed, string ProfileRoot, bool ProfileRootExists);
+public sealed record SlicerInfo(SlicerDefinition Definition, bool Installed, string ProfileRoot, bool ProfileRootExists);
 
 public sealed record DetectionResult(IReadOnlyList<SlicerInfo> Slicers, IReadOnlyList<ProfileMapping> Candidates);
 
-/// <summary>Findet installierte Slicer und deren Profilordner.</summary>
+/// <summary>Finds installed slicers and their profile folders; builds mappings for this computer.</summary>
 public sealed class SlicerDetector
 {
-    public static readonly string[] OrcaFolders = { "filament", "machine", "process" };
-    public static readonly string[] PrusaFolders = { "print", "filament", "printer", "physical_printer" };
-
     private readonly AppPaths _paths;
 
     public SlicerDetector(AppPaths paths) => _paths = paths;
 
-    public string OrcaUserRoot => Path.Combine(_paths.RoamingAppData, "OrcaSlicer", "user");
-    public string PrusaRoot => Path.Combine(_paths.RoamingAppData, "PrusaSlicer");
+    /// <summary>Folder that contains the profile folders (Orca/Bambu: the "user" folder).</summary>
+    public string ProfileRoot(SlicerDefinition d) => d.Layout == ProfileLayout.UserSets
+        ? Path.Combine(_paths.RoamingAppData, d.AppDataFolder, "user")
+        : Path.Combine(_paths.RoamingAppData, d.AppDataFolder);
 
     public DetectionResult Detect()
     {
-        var slicers = new List<SlicerInfo>
-        {
-            new(SlicerKind.Orca, "Orca Slicer", IsInstalled(@"OrcaSlicer\orca-slicer.exe"), OrcaUserRoot, Directory.Exists(OrcaUserRoot)),
-            new(SlicerKind.Prusa, "PrusaSlicer", IsInstalled(@"Prusa3D\PrusaSlicer\prusa-slicer.exe"), PrusaRoot, Directory.Exists(PrusaRoot)),
-        };
-
+        var slicers = new List<SlicerInfo>();
         var candidates = new List<ProfileMapping>();
 
-        if (Directory.Exists(OrcaUserRoot))
+        foreach (var d in SlicerCatalog.All)
         {
-            foreach (var setDir in Directory.EnumerateDirectories(OrcaUserRoot).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
-            {
-                var set = Path.GetFileName(setDir);
-                foreach (var folder in OrcaFolders)
-                {
-                    if (Directory.Exists(Path.Combine(setDir, folder)))
-                        candidates.Add(CreateMapping(SlicerKind.Orca, set, folder));
-                }
-            }
-        }
+            var root = ProfileRoot(d);
+            var installed = d.ExeCandidates.Any(exe => _paths.ProgramFilesDirs.Any(dir => File.Exists(Path.Combine(dir, exe))));
+            slicers.Add(new SlicerInfo(d, installed, root, Directory.Exists(root)));
+            if (!Directory.Exists(root))
+                continue;
 
-        if (Directory.Exists(PrusaRoot))
-        {
-            foreach (var folder in PrusaFolders)
-            {
-                if (Directory.Exists(Path.Combine(PrusaRoot, folder)))
-                    candidates.Add(CreateMapping(SlicerKind.Prusa, "", folder));
-            }
+            var sets = d.Layout == ProfileLayout.UserSets
+                ? Directory.EnumerateDirectories(root).Select(Path.GetFileName).OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList()
+                : new List<string?> { "" };
+            foreach (var set in sets)
+                foreach (var folder in d.Folders)
+                {
+                    var mapping = CreateMapping(d.Kind, set!, folder);
+                    if (Directory.Exists(mapping.OriginalPath))
+                        candidates.Add(mapping);
+                }
         }
 
         return new DetectionResult(slicers, candidates);
     }
 
-    /// <summary>Baut die Zuordnung Originalort ↔ Repository-Ordner für diesen Rechner.</summary>
+    /// <summary>Builds the original location ↔ repository folder mapping of a built-in slicer.</summary>
     public ProfileMapping CreateMapping(string slicer, string profileSet, string folder)
     {
-        if (slicer == SlicerKind.Orca)
+        var d = SlicerCatalog.Find(slicer) ?? throw new ArgumentException($"Unknown slicer: {slicer}");
+        var set = d.Layout == ProfileLayout.UserSets ? profileSet : "";
+        return new ProfileMapping
         {
-            return new ProfileMapping
-            {
-                Slicer = slicer,
-                ProfileSet = profileSet,
-                Folder = folder,
-                OriginalPath = Path.Combine(OrcaUserRoot, profileSet, folder),
-                RepoRelativePath = Path.Combine("Orca", profileSet, folder),
-            };
-        }
-        if (slicer == SlicerKind.Prusa)
-        {
-            return new ProfileMapping
-            {
-                Slicer = slicer,
-                ProfileSet = "",
-                Folder = folder,
-                OriginalPath = Path.Combine(PrusaRoot, folder),
-                RepoRelativePath = Path.Combine("Prusa", folder),
-            };
-        }
-        throw new ArgumentException($"Unbekannter Slicer: {slicer}");
+            Slicer = d.Kind,
+            ProfileSet = set,
+            Folder = folder,
+            OriginalPath = Path.Combine(ProfileRoot(d), set, folder),
+            RepoRelativePath = Path.Combine(d.RepoFolder, set, folder),
+        };
     }
 
+    /// <summary>A folder chosen by the user; stored under Custom\&lt;name&gt; in the repository.</summary>
+    public ProfileMapping CreateCustomMapping(string name, string path) => new()
+    {
+        Slicer = SlicerKind.Custom,
+        Folder = name,
+        OriginalPath = Path.GetFullPath(path),
+        RepoRelativePath = Path.Combine(SlicerKind.Custom, name),
+    };
+
+    /// <summary>Replaces this PC's user folders with %APPDATA%, %LOCALAPPDATA% or %USERPROFILE%.</summary>
+    public string ToPathTemplate(string path)
+    {
+        var full = Path.GetFullPath(path);
+        foreach (var (token, dir) in Tokens())
+        {
+            var prefix = Path.GetFullPath(dir).TrimEnd('\\') + "\\";
+            if (full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return token + "\\" + full[prefix.Length..];
+        }
+        return full;
+    }
+
+    public string FromPathTemplate(string template)
+    {
+        foreach (var (token, dir) in Tokens())
+            if (template.StartsWith(token + "\\", StringComparison.OrdinalIgnoreCase))
+                return Path.Combine(dir, template[(token.Length + 1)..]);
+        return template;
+    }
+
+    // Most specific first: AppData folders usually live inside the user profile.
+    private IEnumerable<(string Token, string Dir)> Tokens() => new[]
+    {
+        ("%APPDATA%", _paths.RoamingAppData),
+        ("%LOCALAPPDATA%", _paths.LocalAppData),
+        ("%USERPROFILE%", _paths.UserProfile),
+    };
+
     /// <summary>
-    /// Zuordnungen aus einem bestehenden Repository ableiten (Zweit-PC). Bevorzugt das Manifest,
-    /// sonst die Ordnerstruktur Orca\&lt;set&gt;\&lt;ordner&gt; bzw. Prusa\&lt;ordner&gt;.
+    /// Derives mappings from an existing repository (second PC). Prefers the manifest, otherwise
+    /// the folder layout &lt;slicer&gt;\[&lt;set&gt;\]&lt;folder&gt; of the built-in slicers.
     /// </summary>
     public List<ProfileMapping> MappingsFromRepository(string repoPath)
     {
         var manifest = RepoManifest.Read(repoPath);
         if (manifest != null && manifest.Folders.Count > 0)
-            return manifest.Folders.Select(f => CreateMapping(f.Slicer, f.ProfileSet, f.Folder)).ToList();
+        {
+            return manifest.Folders
+                .Where(f => f.Slicer == SlicerKind.Custom ? !string.IsNullOrEmpty(f.Path) : SlicerCatalog.Find(f.Slicer) != null)
+                .Select(f => f.Slicer == SlicerKind.Custom
+                    ? CreateCustomMapping(f.Folder, FromPathTemplate(f.Path))
+                    : CreateMapping(f.Slicer, f.ProfileSet, f.Folder))
+                .ToList();
+        }
 
         var result = new List<ProfileMapping>();
-        var orca = Path.Combine(repoPath, "Orca");
-        if (Directory.Exists(orca))
+        foreach (var d in SlicerCatalog.All)
         {
-            foreach (var setDir in Directory.EnumerateDirectories(orca))
-                foreach (var folder in OrcaFolders.Where(f => Directory.Exists(Path.Combine(setDir, f))))
-                    result.Add(CreateMapping(SlicerKind.Orca, Path.GetFileName(setDir), folder));
-        }
-        var prusa = Path.Combine(repoPath, "Prusa");
-        if (Directory.Exists(prusa))
-        {
-            foreach (var folder in PrusaFolders.Where(f => Directory.Exists(Path.Combine(prusa, f))))
-                result.Add(CreateMapping(SlicerKind.Prusa, "", folder));
+            var dir = Path.Combine(repoPath, d.RepoFolder);
+            if (!Directory.Exists(dir))
+                continue;
+            var sets = d.Layout == ProfileLayout.UserSets
+                ? Directory.EnumerateDirectories(dir).Select(Path.GetFileName).ToList()
+                : new List<string?> { "" };
+            foreach (var set in sets)
+                foreach (var folder in d.Folders.Where(f => Directory.Exists(Path.Combine(dir, set!, f))))
+                    result.Add(CreateMapping(d.Kind, set!, folder));
         }
         return result;
     }
-
-    private bool IsInstalled(string relativeExe) =>
-        _paths.ProgramFilesDirs.Any(dir => File.Exists(Path.Combine(dir, relativeExe)));
 }
