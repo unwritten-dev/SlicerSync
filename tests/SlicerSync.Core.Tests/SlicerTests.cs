@@ -40,6 +40,37 @@ public sealed class SlicerTests : IDisposable
     }
 
     [Fact]
+    public void Detector_FindsSlicersInstalledAnywhere_ViaInstalledAppsList()
+    {
+        var pc = _env.CreatePc("A");
+        pc.InstalledApps.AddRange(new[] { "OrcaSlicer", "PrusaSlicer 2.9.2", "Bambu Studio", "Mozilla Firefox" });
+
+        var slicers = pc.Detector.Detect().Slicers.ToDictionary(s => s.Definition.Kind, s => s.Installed);
+
+        Assert.True(slicers[SlicerKind.Orca]);
+        Assert.True(slicers[SlicerKind.Prusa]);
+        Assert.True(slicers[SlicerKind.Bambu]);
+        Assert.False(slicers[SlicerKind.SuperSlicer]);
+    }
+
+    [Theory]
+    [InlineData("OrcaSlicer", SlicerKind.Orca, true)]
+    [InlineData("Orca Slicer 2.3.0", SlicerKind.Orca, true)]
+    [InlineData("BambuStudio", SlicerKind.Bambu, true)]
+    [InlineData("PrusaSlicer 2.9.2", SlicerKind.Prusa, true)]
+    [InlineData("Prusa Connect", SlicerKind.Prusa, false)]
+    [InlineData("SuperSlicer 2.5.59", SlicerKind.SuperSlicer, true)]
+    public void MatchesInstalledApp(string displayName, string kind, bool expected) =>
+        Assert.Equal(expected, SlicerCatalog.Find(kind)!.MatchesInstalledApp(displayName));
+
+    [Fact]
+    public void InstalledApps_ReadsRegistryWithoutError()
+    {
+        // Only checks that reading the real list works; its content depends on the machine.
+        Assert.NotNull(InstalledApps.DisplayNames().ToList());
+    }
+
+    [Fact]
     public void ProcessGuard_KnowsAllBuiltInSlicers()
     {
         var guard = new ProcessGuard(() => new[] { "bambu-studio", "superslicer", "notepad" });

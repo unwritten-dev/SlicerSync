@@ -1,4 +1,4 @@
-namespace SlicerSync.Core.Slicers;
+﻿namespace SlicerSync.Core.Slicers;
 
 public enum ProfileLayout
 {
@@ -17,8 +17,19 @@ public sealed record SlicerDefinition(
     string[] Folders,
     string[] ExeCandidates,
     string[] ProcessNames,
-    string[] SecretFolders)
+    string[] SecretFolders,
+    string[] UninstallNames)
 {
+    /// <summary>
+    /// Whether an entry of the Windows "installed apps" list belongs to this slicer
+    /// (name prefix, ignoring spaces and case, e.g. "PrusaSlicer 2.9.2").
+    /// </summary>
+    public bool MatchesInstalledApp(string displayName)
+    {
+        var name = displayName.Replace(" ", "");
+        return UninstallNames.Any(n => name.StartsWith(n.Replace(" ", ""), StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>Top-level folder inside the repository.</summary>
     public string RepoFolder => Kind;
 }
@@ -31,28 +42,32 @@ public static class SlicerCatalog
         new[] { "filament", "machine", "process" },
         new[] { @"OrcaSlicer\orca-slicer.exe" },
         new[] { "orca-slicer", "OrcaSlicer" },
-        Array.Empty<string>());
+        Array.Empty<string>(),
+        new[] { "OrcaSlicer", "Orca Slicer" });
 
     public static readonly SlicerDefinition Bambu = new(
         SlicerKind.Bambu, "Bambu Studio", "BambuStudio", ProfileLayout.UserSets,
         new[] { "filament", "machine", "process" },
         new[] { @"Bambu Studio\bambu-studio.exe" },
         new[] { "bambu-studio", "BambuStudio" },
-        Array.Empty<string>());
+        Array.Empty<string>(),
+        new[] { "Bambu Studio" });
 
     public static readonly SlicerDefinition Prusa = new(
         SlicerKind.Prusa, "PrusaSlicer", "PrusaSlicer", ProfileLayout.Flat,
         new[] { "print", "filament", "printer", "physical_printer" },
         new[] { @"Prusa3D\PrusaSlicer\prusa-slicer.exe" },
         new[] { "prusa-slicer", "PrusaSlicer" },
-        new[] { "physical_printer" });
+        new[] { "physical_printer" },
+        new[] { "PrusaSlicer" });
 
     public static readonly SlicerDefinition SuperSlicer = new(
         SlicerKind.SuperSlicer, "SuperSlicer", "SuperSlicer", ProfileLayout.Flat,
         new[] { "print", "filament", "printer", "physical_printer" },
         new[] { @"SuperSlicer\superslicer.exe" },
         new[] { "superslicer", "SuperSlicer" },
-        new[] { "physical_printer" });
+        new[] { "physical_printer" },
+        new[] { "SuperSlicer" });
 
     public static readonly IReadOnlyList<SlicerDefinition> All = new[] { Orca, Bambu, Prusa, SuperSlicer };
 

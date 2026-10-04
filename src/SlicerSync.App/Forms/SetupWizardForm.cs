@@ -267,17 +267,21 @@ public sealed class SetupWizardForm : Form
         _foldersLoaded = true;
 
         var detection = _services.Detector.Detect();
-        var lines = detection.Slicers
-            .Where(s => s.Installed || s.ProfileRootExists)
-            .Select(s => $"{s.Definition.DisplayName}: " +
-                         (s.Installed ? Loc.T("installed", "installiert") : Loc.T("not installed", "nicht installiert")) + ", " +
-                         (s.ProfileRootExists ? Loc.T("profiles found", "Profile gefunden") : Loc.T("no profiles", "keine Profile")))
-            .ToList();
-        _detected.Text = lines.Count > 0
-            ? string.Join("\n", lines)
-            : Loc.T(
-                "No supported slicer was found. You can add any profile folder with \"Add custom folder…\".",
-                "Es wurde kein unterstützter Slicer gefunden. Mit „Eigenen Ordner hinzufügen…“ kannst du jeden Profilordner aufnehmen.");
+        var lines = detection.Slicers.Select(s => $"{s.Definition.DisplayName}: " + (s.Installed, s.ProfileRootExists) switch
+        {
+            (true, true) => Loc.T("installed, profiles found", "installiert, Profile gefunden"),
+            (false, true) => Loc.T("profiles found", "Profile gefunden"),
+            (true, false) => Loc.T($"installed, but no profile folder at {s.ProfileRoot}",
+                                   $"installiert, aber kein Profilordner unter {s.ProfileRoot}"),
+            _ => Loc.T("not found", "nicht gefunden"),
+        }).ToList();
+        if (detection.Slicers.Any(s => s.Installed && !s.ProfileRootExists))
+            lines.Add(Loc.T(
+                "Tip: in the slicer, \"Help → Show Configuration Folder\" shows where it keeps its profiles. " +
+                "A different folder can be added with \"Add custom folder…\".",
+                "Tipp: Im Slicer zeigt „Hilfe → Konfigurationsordner anzeigen“, wo er seine Profile ablegt. " +
+                "Ein anderer Ordner lässt sich mit „Eigenen Ordner hinzufügen…“ aufnehmen."));
+        _detected.Text = string.Join("\n", lines);
 
         var repoPath = string.IsNullOrEmpty(_services.Settings.RepoPath) ? _repoPath.Text : _services.Settings.RepoPath;
         var known = _services.Settings.Mappings;

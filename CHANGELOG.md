@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1
+
+- Slicers installed outside the default folder (e.g. on another drive) are now detected via the Windows
+  list of installed apps.
+- The setup wizard lists all supported slicers with their status, including those that were not found,
+  and shows where profiles were expected.
+
 ## 1.0.0
 
 First release.

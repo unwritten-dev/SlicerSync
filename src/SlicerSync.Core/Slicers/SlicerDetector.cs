@@ -10,8 +10,14 @@ public sealed record DetectionResult(IReadOnlyList<SlicerInfo> Slicers, IReadOnl
 public sealed class SlicerDetector
 {
     private readonly AppPaths _paths;
+    private readonly Func<IEnumerable<string>> _installedApps;
 
-    public SlicerDetector(AppPaths paths) => _paths = paths;
+    /// <param name="installedApps">Display names of installed apps; default: read from the Windows registry.</param>
+    public SlicerDetector(AppPaths paths, Func<IEnumerable<string>>? installedApps = null)
+    {
+        _paths = paths;
+        _installedApps = installedApps ?? InstalledApps.DisplayNames;
+    }
 
     /// <summary>Folder that contains the profile folders (Orca/Bambu: the "user" folder).</summary>
     public string ProfileRoot(SlicerDefinition d) => d.Layout == ProfileLayout.UserSets
@@ -22,11 +28,14 @@ public sealed class SlicerDetector
     {
         var slicers = new List<SlicerInfo>();
         var candidates = new List<ProfileMapping>();
+        var apps = _installedApps().ToList();
 
         foreach (var d in SlicerCatalog.All)
         {
             var root = ProfileRoot(d);
-            var installed = d.ExeCandidates.Any(exe => _paths.ProgramFilesDirs.Any(dir => File.Exists(Path.Combine(dir, exe))));
+            // Installed anywhere (registry), or at least at the default location.
+            var installed = apps.Any(d.MatchesInstalledApp) ||
+                            d.ExeCandidates.Any(exe => _paths.ProgramFilesDirs.Any(dir => File.Exists(Path.Combine(dir, exe))));
             slicers.Add(new SlicerInfo(d, installed, root, Directory.Exists(root)));
             if (!Directory.Exists(root))
                 continue;

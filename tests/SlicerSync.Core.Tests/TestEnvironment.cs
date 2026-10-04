@@ -28,7 +28,7 @@ public sealed class TestPc
         Git = env.CreateRunner();
         Log = new MemoryLogger();
         Backups = new BackupService(Paths.BackupDir, Log);
-        Detector = new SlicerDetector(Paths);
+        Detector = new SlicerDetector(Paths, () => InstalledApps);
         Guard = new ProcessGuard(() => RunningProcesses);
         Setup = new SetupService(Git, Backups, Guard, Detector, Log);
         Settings = new AppSettings
@@ -51,6 +51,9 @@ public sealed class TestPc
     public SyncService Sync { get; }
     public AppSettings Settings { get; }
     public List<string> RunningProcesses { get; } = new();
+
+    /// <summary>Simulated "installed apps" list (instead of the real registry).</summary>
+    public List<string> InstalledApps { get; } = new();
 
     public GitRepository Repo => new(Git, Settings.RepoPath);
 
