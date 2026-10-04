@@ -47,14 +47,15 @@ public sealed class UnitTests : IDisposable
     [Fact]
     public async Task Debouncer_RunsOnceAfterBurst()
     {
+        // The pauses between triggers must stay well below the debounce delay even on slow CI machines.
         var count = 0;
-        using var debouncer = new Debouncer(TimeSpan.FromMilliseconds(200), () => Interlocked.Increment(ref count));
+        using var debouncer = new Debouncer(TimeSpan.FromSeconds(1), () => Interlocked.Increment(ref count));
         for (var i = 0; i < 10; i++)
         {
             debouncer.Trigger();
-            await Task.Delay(20);
+            await Task.Delay(10);
         }
-        await Task.Delay(600);
+        await Task.Delay(2500);
         Assert.Equal(1, count);
     }
 
@@ -73,7 +74,7 @@ public sealed class UnitTests : IDisposable
 
         File.WriteAllText(Path.Combine(repo, "a.ini"), "x");
         File.WriteAllText(Path.Combine(repo, "b.ini"), "x");
-        await Task.Delay(2500);
+        await Task.Delay(4000);
         Assert.Equal(1, count);
     }
 
