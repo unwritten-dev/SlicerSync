@@ -71,12 +71,14 @@ public sealed class SlicerDetector
     }
 
     /// <summary>A folder chosen by the user; stored under Custom\&lt;name&gt; in the repository.</summary>
-    public ProfileMapping CreateCustomMapping(string name, string path) => new()
+    /// <param name="processName">Optional process name of the program, so SlicerSync can check whether it runs.</param>
+    public ProfileMapping CreateCustomMapping(string name, string path, string processName = "") => new()
     {
         Slicer = SlicerKind.Custom,
         Folder = name,
         OriginalPath = Path.GetFullPath(path),
         RepoRelativePath = Path.Combine(SlicerKind.Custom, name),
+        ProcessName = processName,
     };
 
     /// <summary>Replaces this PC's user folders with %APPDATA%, %LOCALAPPDATA% or %USERPROFILE%.</summary>
@@ -120,7 +122,7 @@ public sealed class SlicerDetector
             return manifest.Folders
                 .Where(f => f.Slicer == SlicerKind.Custom ? !string.IsNullOrEmpty(f.Path) : SlicerCatalog.Find(f.Slicer) != null)
                 .Select(f => f.Slicer == SlicerKind.Custom
-                    ? CreateCustomMapping(f.Folder, FromPathTemplate(f.Path))
+                    ? CreateCustomMapping(f.Folder, FromPathTemplate(f.Path), f.ProcessName)
                     : CreateMapping(f.Slicer, f.ProfileSet, f.Folder))
                 .ToList();
         }

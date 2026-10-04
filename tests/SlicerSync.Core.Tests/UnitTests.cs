@@ -108,7 +108,7 @@ public sealed class UnitTests : IDisposable
     {
         var guard = new ProcessGuard(() => new[] { "explorer", "prusa-slicer", "orca-slicer" });
         Assert.Equal(new[] { "Orca Slicer", "PrusaSlicer" }, guard.RunningSlicers());
-        Assert.Throws<SlicerRunningException>(guard.EnsureSlicersClosed);
+        Assert.Throws<SlicerRunningException>(() => guard.EnsureSlicersClosed());
         Assert.Empty(new ProcessGuard(() => new[] { "explorer" }).RunningSlicers());
     }
 

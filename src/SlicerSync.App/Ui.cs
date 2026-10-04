@@ -135,6 +135,29 @@ public static class Ui
         return (panel, box);
     }
 
+    /// <summary>Text box with a "Browse…" button for a file.</summary>
+    public static (Control Panel, TextBox Box) FilePicker(string initial, string filter)
+    {
+        var panel = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Margin = Padding.Empty, Dock = DockStyle.Fill };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        var box = new TextBox { Text = initial, Dock = DockStyle.Fill };
+        var button = new Button { Text = Loc.T("Browse…", "Durchsuchen…"), AutoSize = true };
+        button.Click += (_, _) =>
+        {
+            using var dlg = new OpenFileDialog { Filter = filter, CheckFileExists = true };
+            if (File.Exists(box.Text))
+                dlg.FileName = box.Text;
+            else
+                dlg.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            if (dlg.ShowDialog() == DialogResult.OK)
+                box.Text = dlg.FileName;
+        };
+        panel.Controls.Add(box, 0, 0);
+        panel.Controls.Add(button, 1, 0);
+        return (panel, box);
+    }
+
     /// <summary>Standard setup for a fixed-size dialog window.</summary>
     public static void InitDialog(Form form, string title, int width, int height)
     {

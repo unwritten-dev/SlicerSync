@@ -60,8 +60,28 @@ public sealed class SlicerTests : IDisposable
     [InlineData("PrusaSlicer 2.9.2", SlicerKind.Prusa, true)]
     [InlineData("Prusa Connect", SlicerKind.Prusa, false)]
     [InlineData("SuperSlicer 2.5.59", SlicerKind.SuperSlicer, true)]
+    [InlineData("PrusaSlicer 3.0.0-alpha1", SlicerKind.Prusa, false)]
+    [InlineData("PrusaSlicer 3.0.0-alpha1", SlicerKind.PrusaAlpha, true)]
+    [InlineData("PrusaSlicer 2.9.0-beta2", SlicerKind.PrusaBeta, true)]
+    [InlineData("PrusaSlicer 2.9.2", SlicerKind.PrusaAlpha, false)]
     public void MatchesInstalledApp(string displayName, string kind, bool expected) =>
         Assert.Equal(expected, SlicerCatalog.Find(kind)!.MatchesInstalledApp(displayName));
+
+    [Fact]
+    public void Detector_FindsPrusaAlphaSeparately()
+    {
+        var pc = _env.CreatePc("A");
+        pc.InstalledApps.Add("PrusaSlicer 3.0.0-alpha1");
+        pc.WriteFile(Path.Combine(pc.Paths.RoamingAppData, @"PrusaSlicer-alpha\print"), "Fine.ini", "x");
+
+        var result = pc.Detector.Detect();
+
+        var alpha = Assert.Single(result.Candidates);
+        Assert.Equal(@"PrusaAlpha\print", alpha.RepoRelativePath);
+        Assert.Equal("PrusaSlicer Alpha – print", alpha.DisplayName);
+        Assert.True(result.Slicers.Single(s => s.Definition.Kind == SlicerKind.PrusaAlpha).Installed);
+        Assert.False(result.Slicers.Single(s => s.Definition.Kind == SlicerKind.Prusa).Installed);
+    }
 
     [Fact]
     public void InstalledApps_ReadsRegistryWithoutError()
@@ -75,6 +95,40 @@ public sealed class SlicerTests : IDisposable
     {
         var guard = new ProcessGuard(() => new[] { "bambu-studio", "superslicer", "notepad" });
         Assert.Equal(new[] { "Bambu Studio", "SuperSlicer" }, guard.RunningSlicers());
+    }
+
+    [Fact]
+    public void ProcessGuard_ChecksProgramsOfCustomFolders()
+    {
+        var pc = _env.CreatePc("A");
+        var cura = pc.Detector.CreateCustomMapping("Cura", pc.Root, "UltiMaker-Cura");
+        var unknown = pc.Detector.CreateCustomMapping("Other", pc.Root);
+        var guard = new ProcessGuard(() => new[] { "UltiMaker-Cura", "explorer" });
+
+        Assert.Empty(guard.RunningSlicers());
+        Assert.Equal(new[] { "Cura" }, guard.RunningSlicers(new[] { cura, unknown }));
+    }
+
+    [Fact]
+    public void Setup_RefusesWhileCustomProgramRuns_AndProcessNameReachesSecondPc()
+    {
+        var a = _env.CreatePc("A");
+        a.CreateSampleProfiles();
+        var curaDir = Path.Combine(a.Paths.RoamingAppData, @"cura\5.8");
+        a.WriteFile(curaDir, "x.cfg", "x");
+        var cura = a.Detector.CreateCustomMapping("Cura", curaDir, "UltiMaker-Cura");
+        var selected = a.Detector.Detect().Candidates.Append(cura).ToList();
+
+        a.RunningProcesses.Add("UltiMaker-Cura");
+        Assert.Throws<SlicerRunningException>(() => a.Setup.RunNewSetup(a.Settings, selected));
+        Assert.False(Junction.IsJunction(curaDir));
+
+        a.RunningProcesses.Clear();
+        a.Setup.RunNewSetup(a.Settings, selected);
+
+        var b = _env.CreatePc("B");
+        b.Setup.RunCloneSetup(b.Settings);
+        Assert.Equal("UltiMaker-Cura", b.Settings.Mappings.Single(m => m.IsCustom).ProcessName);
     }
 
     [Fact]

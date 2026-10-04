@@ -6,7 +6,7 @@ SlicerSync is a small Windows tray app that automatically backs up your own slic
 repository (GitHub, GitLab, …), with full version history. Set it up once, and every profile you save in your
 slicer is backed up and synced to your other PCs. No command line needed.
 
-**Supported out of the box:** Orca Slicer, Bambu Studio, PrusaSlicer, SuperSlicer.
+**Supported out of the box:** Orca Slicer, Bambu Studio, PrusaSlicer (including alpha/beta builds), SuperSlicer.
 **Any other slicer** (Cura, Creality Print, ElegooSlicer, …) can be added as a custom folder.
 
 ## Download
@@ -33,6 +33,7 @@ Requirements: Windows 10 or 11 (64-bit).
 | Orca Slicer | `%AppData%\OrcaSlicer\user\<default or user ID>\{filament, machine, process}` | `Orca\…` |
 | Bambu Studio | `%AppData%\BambuStudio\user\<user ID>\{filament, machine, process}` | `Bambu\…` |
 | PrusaSlicer | `%AppData%\PrusaSlicer\{print, filament, printer, physical_printer}` | `Prusa\…` |
+| PrusaSlicer alpha/beta | `%AppData%\PrusaSlicer-alpha\…` / `%AppData%\PrusaSlicer-beta\…` (same subfolders) | `PrusaAlpha\…` / `PrusaBeta\…` |
 | SuperSlicer | `%AppData%\SuperSlicer\{print, filament, printer, physical_printer}` | `SuperSlicer\…` |
 | Custom folder | any folder you choose | `Custom\<name>` |
 
@@ -149,8 +150,8 @@ There is also a `.gitattributes` file (`* -text`) so files are stored byte for b
 - Before anything is moved, replaced or restored, a ZIP backup is created and checked for completeness.
 - Folders are copied and verified first. Then the original is moved aside and the junction is created, and only
   then is the original deleted. If the junction fails, everything is rolled back.
-- Nothing is moved while a known slicer is running. For custom folders SlicerSync cannot tell; close those
-  programs yourself.
+- Nothing is moved while a known slicer is running. For custom folders this works if you picked the program's
+  EXE when adding the folder; otherwise close the program yourself.
 - On a pull conflict the rebase is aborted and nothing is overwritten.
 - Credentials are handled only by the Git Credential Manager.
 

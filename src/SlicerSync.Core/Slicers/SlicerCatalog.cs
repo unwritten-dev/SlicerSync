@@ -18,17 +18,25 @@ public sealed record SlicerDefinition(
     string[] ExeCandidates,
     string[] ProcessNames,
     string[] SecretFolders,
-    string[] UninstallNames)
+    string[] UninstallNames,
+    string? Channel = null)
 {
     /// <summary>
     /// Whether an entry of the Windows "installed apps" list belongs to this slicer
-    /// (name prefix, ignoring spaces and case, e.g. "PrusaSlicer 2.9.2").
+    /// (name prefix, ignoring spaces and case, e.g. "PrusaSlicer 2.9.2"). If <see cref="Channel"/>
+    /// is set ("" = stable, "alpha", "beta"), the entry must also belong to that release channel.
     /// </summary>
     public bool MatchesInstalledApp(string displayName)
     {
         var name = displayName.Replace(" ", "");
-        return UninstallNames.Any(n => name.StartsWith(n.Replace(" ", ""), StringComparison.OrdinalIgnoreCase));
+        return UninstallNames.Any(n => name.StartsWith(n.Replace(" ", ""), StringComparison.OrdinalIgnoreCase)) &&
+               (Channel == null || ReleaseChannel(displayName) == Channel);
     }
+
+    private static string ReleaseChannel(string displayName) =>
+        displayName.Contains("alpha", StringComparison.OrdinalIgnoreCase) ? "alpha"
+        : displayName.Contains("beta", StringComparison.OrdinalIgnoreCase) ? "beta"
+        : "";
 
     /// <summary>Top-level folder inside the repository.</summary>
     public string RepoFolder => Kind;
@@ -59,7 +67,29 @@ public static class SlicerCatalog
         new[] { @"Prusa3D\PrusaSlicer\prusa-slicer.exe" },
         new[] { "prusa-slicer", "PrusaSlicer" },
         new[] { "physical_printer" },
-        new[] { "PrusaSlicer" });
+        new[] { "PrusaSlicer" },
+        Channel: "");
+
+    // Alpha and beta builds of PrusaSlicer keep their own data folder, separate from the stable
+    // version, because their profile format may be newer. They are backed up separately as well.
+    // Their process is called like the stable one, which the stable entry already covers.
+    public static readonly SlicerDefinition PrusaAlpha = new(
+        SlicerKind.PrusaAlpha, "PrusaSlicer Alpha", "PrusaSlicer-alpha", ProfileLayout.Flat,
+        Prusa.Folders,
+        Array.Empty<string>(),
+        Array.Empty<string>(),
+        new[] { "physical_printer" },
+        new[] { "PrusaSlicer" },
+        Channel: "alpha");
+
+    public static readonly SlicerDefinition PrusaBeta = new(
+        SlicerKind.PrusaBeta, "PrusaSlicer Beta", "PrusaSlicer-beta", ProfileLayout.Flat,
+        Prusa.Folders,
+        Array.Empty<string>(),
+        Array.Empty<string>(),
+        new[] { "physical_printer" },
+        new[] { "PrusaSlicer" },
+        Channel: "beta");
 
     public static readonly SlicerDefinition SuperSlicer = new(
         SlicerKind.SuperSlicer, "SuperSlicer", "SuperSlicer", ProfileLayout.Flat,
@@ -69,7 +99,7 @@ public static class SlicerCatalog
         new[] { "physical_printer" },
         new[] { "SuperSlicer" });
 
-    public static readonly IReadOnlyList<SlicerDefinition> All = new[] { Orca, Bambu, Prusa, SuperSlicer };
+    public static readonly IReadOnlyList<SlicerDefinition> All = new[] { Orca, Bambu, Prusa, PrusaAlpha, PrusaBeta, SuperSlicer };
 
     public static SlicerDefinition? Find(string kind) =>
         All.FirstOrDefault(d => string.Equals(d.Kind, kind, StringComparison.OrdinalIgnoreCase));
@@ -80,6 +110,8 @@ public static class SlicerKind
     public const string Orca = "Orca";
     public const string Bambu = "Bambu";
     public const string Prusa = "Prusa";
+    public const string PrusaAlpha = "PrusaAlpha";
+    public const string PrusaBeta = "PrusaBeta";
     public const string SuperSlicer = "SuperSlicer";
     /// <summary>A folder chosen by the user (any other slicer or program).</summary>
     public const string Custom = "Custom";

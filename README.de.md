@@ -7,7 +7,7 @@ Slicer-Profile automatisch in ein privates Git-Repository (GitHub, GitLab, …),
 Einmal eingerichtet, wird jedes Profil, das du im Slicer speicherst, gesichert und mit deinen anderen PCs abgeglichen.
 Eine Kommandozeile braucht es dafür nicht.
 
-**Direkt unterstützt:** Orca Slicer, Bambu Studio, PrusaSlicer, SuperSlicer.
+**Direkt unterstützt:** Orca Slicer, Bambu Studio, PrusaSlicer (auch Alpha-/Beta-Versionen), SuperSlicer.
 **Jeder andere Slicer** (Cura, Creality Print, ElegooSlicer, …) lässt sich als eigener Ordner hinzufügen.
 
 ## Download
@@ -36,6 +36,7 @@ Voraussetzung: Windows 10 oder 11 (64 Bit).
 | Orca Slicer | `%AppData%\OrcaSlicer\user\<default oder Nutzer-ID>\{filament, machine, process}` | `Orca\…` |
 | Bambu Studio | `%AppData%\BambuStudio\user\<Nutzer-ID>\{filament, machine, process}` | `Bambu\…` |
 | PrusaSlicer | `%AppData%\PrusaSlicer\{print, filament, printer, physical_printer}` | `Prusa\…` |
+| PrusaSlicer Alpha/Beta | `%AppData%\PrusaSlicer-alpha\…` / `%AppData%\PrusaSlicer-beta\…` (gleiche Unterordner) | `PrusaAlpha\…` / `PrusaBeta\…` |
 | SuperSlicer | `%AppData%\SuperSlicer\{print, filament, printer, physical_printer}` | `SuperSlicer\…` |
 | Eigener Ordner | ein beliebiger Ordner deiner Wahl | `Custom\<Name>` |
 
@@ -159,8 +160,8 @@ weiß, was zu verlinken ist. Dazu kommt `.gitattributes` (`* -text`), damit Date
 - Vor jedem Verschieben, Ersetzen oder Zurücksetzen wird eine ZIP-Sicherung angelegt und auf Vollständigkeit geprüft.
 - Ordner werden erst kopiert und geprüft. Dann wird das Original zur Seite gelegt und die Junction angelegt, erst
   danach wird das Original gelöscht. Schlägt die Junction fehl, wird alles zurückgerollt.
-- Solange ein bekannter Slicer läuft, wird nichts verschoben. Bei eigenen Ordnern kann SlicerSync das nicht
-  erkennen; diese Programme bitte selbst schließen.
+- Solange ein bekannter Slicer läuft, wird nichts verschoben. Bei eigenen Ordnern klappt das, wenn beim Hinzufügen
+  die EXE des Programms gewählt wurde; sonst das Programm bitte selbst schließen.
 - Bei einem Pull-Konflikt wird der Rebase abgebrochen und nichts überschrieben.
 - Zugangsdaten verwaltet ausschließlich der Git Credential Manager.
 

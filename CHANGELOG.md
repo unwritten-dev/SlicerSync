@@ -6,6 +6,10 @@
   list of installed apps.
 - The setup wizard lists all supported slicers with their status, including those that were not found,
   and shows where profiles were expected.
+- PrusaSlicer alpha and beta builds are supported. Their profiles live in separate folders
+  (`PrusaSlicer-alpha`, `PrusaSlicer-beta`) and are backed up separately from the stable version.
+- Custom folders: optionally pick the program's EXE, so SlicerSync checks whether it is running before
+  moving or restoring files.
 
 ## 1.0.0
 

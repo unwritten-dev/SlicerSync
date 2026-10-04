@@ -36,6 +36,12 @@ public sealed class ProfileMapping
 
     public bool Enabled { get; set; } = true;
 
+    /// <summary>
+    /// Custom folders only: process name of the program (EXE file name without ".exe"), so SlicerSync
+    /// can check whether it is running. Empty = unknown.
+    /// </summary>
+    public string ProcessName { get; set; } = "";
+
     [JsonIgnore]
     public bool IsCustom => Slicer == SlicerKind.Custom;
 

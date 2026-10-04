@@ -116,7 +116,7 @@ public sealed class HistoryForm : Form
         var stateText = file.Status == "D"
             ? Loc.T("the state before it was deleted", "den Stand vor dem Löschen")
             : Loc.T($"the state of {Loc.DateTime(commit.Date.LocalDateTime)}", $"den Stand vom {Loc.DateTime(commit.Date.LocalDateTime)}");
-        var running = _services.Guard.RunningSlicers();
+        var running = _services.Guard.RunningSlicers(_services.Settings.Mappings);
         var warning = running.Count > 0
             ? Loc.T(
                 $"\n\nCaution: {string.Join(", ", running)} is open. Please restart the slicer after restoring, " +

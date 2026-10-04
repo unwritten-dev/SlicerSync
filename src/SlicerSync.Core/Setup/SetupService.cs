@@ -132,7 +132,7 @@ public sealed class SetupService
         ValidateBasics(settings);
         if (selected.Count == 0)
             throw new SetupException(Loc.T("No profile folder selected.", "Es ist kein Profilordner ausgewählt."));
-        _guard.EnsureSlicersClosed();
+        _guard.EnsureSlicersClosed(selected);
 
         var repo = new GitRepository(_git, settings.RepoPath);
         var hasRemote = !string.IsNullOrWhiteSpace(settings.RemoteUrl);
@@ -281,6 +281,8 @@ public sealed class SetupService
             throw new SetupException(Loc.T(
                 "The repository contains no slicer profiles. Please run \"New setup\" on the first PC first.",
                 "Das Repository enthält keine Slicer-Profile. Bitte zuerst auf dem ersten PC „Neu einrichten“ ausführen."));
+        // Custom folders are only known now (from the manifest): check their programs too.
+        _guard.EnsureSlicersClosed(mappings);
 
         var result = new SetupResult();
         var states = mappings.ToDictionary(m => m, m => GetState(m, settings.RepoPath));
@@ -318,7 +320,7 @@ public sealed class SetupService
     public SetupResult AddMappings(AppSettings settings, IReadOnlyList<ProfileMapping> mappings)
     {
         ValidateBasics(settings);
-        _guard.EnsureSlicersClosed();
+        _guard.EnsureSlicersClosed(mappings);
 
         var result = new SetupResult();
         var states = mappings.ToDictionary(m => m, m => GetState(m, settings.RepoPath));
@@ -342,7 +344,7 @@ public sealed class SetupService
     /// </summary>
     public void RemoveMappings(AppSettings settings, IReadOnlyList<ProfileMapping> mappings)
     {
-        _guard.EnsureSlicersClosed();
+        _guard.EnsureSlicersClosed(mappings);
         foreach (var m in mappings)
         {
             Unlink(m, settings.RepoPath);
@@ -360,7 +362,7 @@ public sealed class SetupService
     /// </summary>
     public int Uninstall(AppSettings settings)
     {
-        _guard.EnsureSlicersClosed();
+        _guard.EnsureSlicersClosed(settings.Mappings);
         var count = 0;
         foreach (var m in settings.Mappings)
         {

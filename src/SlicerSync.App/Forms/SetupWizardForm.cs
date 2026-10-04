@@ -389,7 +389,7 @@ public sealed class SetupWizardForm : Form
 
     private bool UpdateSlicerStatus()
     {
-        var running = _services.Guard.RunningSlicers();
+        var running = _services.Guard.RunningSlicers(IsNewMode ? SelectedMappings() : null);
         _slicerStatus.Text = running.Count == 0
             ? Loc.T("✔ No slicer is open.", "✔ Kein Slicer geöffnet.")
             : Loc.T($"✖ Please close first: {string.Join(", ", running)}", $"✖ Bitte zuerst schließen: {string.Join(", ", running)}");

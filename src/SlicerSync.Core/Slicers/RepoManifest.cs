@@ -20,6 +20,8 @@ public sealed class RepoManifest
         public string Folder { get; set; } = "";
         /// <summary>Custom folders only: original location with %APPDATA%/%LOCALAPPDATA%/%USERPROFILE% tokens.</summary>
         public string Path { get; set; } = "";
+        /// <summary>Custom folders only: process name of the program (may be empty).</summary>
+        public string ProcessName { get; set; } = "";
     }
 
     public static RepoManifest? Read(string repoPath)
@@ -54,6 +56,7 @@ public sealed class RepoManifest
                     ProfileSet = m.ProfileSet,
                     Folder = m.Folder,
                     Path = m.IsCustom ? detector.ToPathTemplate(m.OriginalPath) : "",
+                    ProcessName = m.IsCustom ? m.ProcessName : "",
                 });
         }
         File.WriteAllText(System.IO.Path.Combine(repoPath, FileName), SettingsStore.Serialize(manifest));
