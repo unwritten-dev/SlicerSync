@@ -84,7 +84,9 @@ public sealed class SettingsForm : Form
             "copied back to their original location; their state in the repository is kept. The slicers must be closed.",
             "Neu angehakte Ordner werden (nach ZIP-Sicherung) ins Repository verschoben und verlinkt. Abgewählte Ordner " +
             "werden an ihren Originalort zurückkopiert; ihr Stand im Repository bleibt erhalten. Dafür müssen die Slicer geschlossen sein.")));
-        _folders.ItemCheck += (_, _) => BeginInvoke(UpdateSecretWarning);
+        // ItemCheck fires before the state changes (and also while the list is filled, before the
+        // window exists), so compute with the new value directly instead of deferring.
+        _folders.ItemCheck += (_, e) => UpdateSecretWarning(e.Index, e.NewValue);
         return new TabPage(Loc.T("Profiles", "Profile")) { Controls = { col } };
     }
 
@@ -210,8 +212,11 @@ public sealed class SettingsForm : Form
         _gitPath.Text = _work.GitPath;
     }
 
-    private void UpdateSecretWarning() =>
-        _secretWarning.Visible = _folders.CheckedItems.Cast<FolderItem>().Any(i => i.Mapping.MayContainSecrets);
+    /// <param name="changedIndex">Item whose check state is about to change (from ItemCheck), or -1.</param>
+    private void UpdateSecretWarning(int changedIndex = -1, CheckState newValue = CheckState.Unchecked) =>
+        _secretWarning.Visible = _folders.Items.Cast<FolderItem>()
+            .Where((_, i) => i == changedIndex ? newValue == CheckState.Checked : _folders.GetItemChecked(i))
+            .Any(item => item.Mapping.MayContainSecrets);
 
     private void AddCustomFolder()
     {

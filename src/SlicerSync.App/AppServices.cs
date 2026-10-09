@@ -15,16 +15,18 @@ public sealed class AppServices
 {
     private volatile AppSettings _settings;
 
-    public AppServices()
+    /// <param name="paths">Base folders; tests pass temporary ones. Default: the real user folders.</param>
+    /// <param name="installedApps">Installed-apps list for slicer detection; default: the Windows registry.</param>
+    public AppServices(AppPaths? paths = null, Func<IEnumerable<string>>? installedApps = null)
     {
-        Paths = AppPaths.FromEnvironment();
+        Paths = paths ?? AppPaths.FromEnvironment();
         Log = new FileLogger(Paths.LogFile);
         Store = new SettingsStore(Paths.SettingsFile, Log);
         _settings = Store.Load();
         Loc.SetLanguage(_settings.Language);
         Backups = new BackupService(Paths.BackupDir, Log);
         Guard = new ProcessGuard();
-        Detector = new SlicerDetector(Paths);
+        Detector = new SlicerDetector(Paths, installedApps);
         RefreshGit();
     }
 

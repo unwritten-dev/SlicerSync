@@ -28,7 +28,8 @@ public sealed class TrayContext : ApplicationContext
     public TrayContext(AppServices services, bool autostarted)
     {
         _services = services;
-        _ui.CreateControl();
+        // Force the window handle: BeginInvoke on _ui is used from background threads.
+        _ = _ui.Handle;
         _scheduler = new SyncScheduler(() => _services.Sync?.Sync(), services.Log);
 
         _tray.DoubleClick += (_, _) => ShowSingle(() => new HistoryForm(_services));

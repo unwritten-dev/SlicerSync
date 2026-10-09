@@ -34,7 +34,7 @@ $dotnet = Find-Tool "dotnet" @("$env:ProgramFiles\dotnet\dotnet.exe")
 
 if (-not $SkipTests) {
     Write-Host "== Tests ==" -ForegroundColor Cyan
-    & $dotnet test tests\SlicerSync.Core.Tests -c Release
+    & $dotnet test SlicerSync.sln -c Release
     if ($LASTEXITCODE -ne 0) { throw "Tests failed." }
 }
 

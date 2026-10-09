@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2
+
+- Fixed: the settings window crashed with "Invoke or BeginInvoke cannot be called on a control until the
+  window handle has been created" as soon as profile folders were set up. The setup wizard had the same
+  problem in rare cases.
+- New UI tests open every window with real profile folders, so errors like this are caught before a release.
+
 ## 1.0.1
 
 - Slicers installed outside the default folder (e.g. on another drive) are now detected via the Windows

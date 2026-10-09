@@ -16,7 +16,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Test
-        run: dotnet test tests/SlicerSync.Core.Tests -c Release
+        run: dotnet test SlicerSync.sln -c Release
 
       - name: Publish (smoke test)
         run: dotnet publish src/SlicerSync.App -c Release -o publish

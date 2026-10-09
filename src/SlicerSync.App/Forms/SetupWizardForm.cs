@@ -97,7 +97,8 @@ public sealed class SetupWizardForm : Form
         _back.Click += (_, _) => Navigate(-1);
         _next.Click += async (_, _) => await OnNext();
         _gitLink.LinkClicked += (_, _) => Ui.Open(GitLocator.DownloadUrl);
-        _folders.ItemCheck += (_, _) => BeginInvoke(UpdateSecretWarning);
+        // ItemCheck fires before the state changes: compute with the new value instead of deferring.
+        _folders.ItemCheck += (_, e) => UpdateSecretWarning(e.Index, e.NewValue);
 
         BuildPages();
         _services.Log.MessageLogged += OnLogMessage;
@@ -305,8 +306,11 @@ public sealed class SetupWizardForm : Form
     private IReadOnlyList<ProfileMapping> SelectedMappings() =>
         _folders.CheckedItems.Cast<MappingItem>().Select(i => i.Mapping).ToList();
 
-    private void UpdateSecretWarning() =>
-        _secretWarning.Visible = SelectedMappings().Any(m => m.MayContainSecrets);
+    /// <param name="changedIndex">Item whose check state is about to change (from ItemCheck), or -1.</param>
+    private void UpdateSecretWarning(int changedIndex = -1, CheckState newValue = CheckState.Unchecked) =>
+        _secretWarning.Visible = _folders.Items.Cast<MappingItem>()
+            .Where((_, i) => i == changedIndex ? newValue == CheckState.Checked : _folders.GetItemChecked(i))
+            .Any(item => item.Mapping.MayContainSecrets);
 
     private bool ValidateFolders()
     {
