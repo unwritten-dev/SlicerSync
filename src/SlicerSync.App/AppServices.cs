@@ -85,6 +85,8 @@ public sealed class AppServices
 
     public RemoteCreator CreateRemoteCreator() => new(RequireGit(), Log);
 
+    public ProfileSetCopier CreateCopier() => new(Backups, Guard, Log);
+
     /// <summary>Runs a file operation while it is guaranteed that no sync is running.</summary>
     public T Exclusive<T>(Func<T> action) => Sync != null ? Sync.RunExclusive(action) : action();
 

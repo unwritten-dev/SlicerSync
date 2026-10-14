@@ -81,6 +81,10 @@ user folder).
 Orca Slicer and Bambu Studio store profiles per signed-in user (`default` or your user ID). To share profiles between
 PCs, sign in with the same account on both PCs (or with none, which means `default`).
 
+Want to work without signing in, but your profiles are in an account folder? Use **Settings → Profiles → Use account
+profiles without sign-in…**. It copies the profiles of an account into `default` (account and cloud IDs removed,
+replaced versions backed up as ZIP first, the account folder untouched). Then sign out in the slicer on every PC.
+
 ## When does SlicerSync back up?
 
 Set under **Settings → Sync**:

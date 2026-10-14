@@ -2,6 +2,7 @@ using SlicerSync.Core;
 using SlicerSync.Core.Config;
 using SlicerSync.Core.Git;
 using SlicerSync.Core.Setup;
+using SlicerSync.Core.Slicers;
 using SlicerSync.Core.Sync;
 
 namespace SlicerSync.App.Forms;
@@ -77,7 +78,15 @@ public sealed class SettingsForm : Form
         var col = Ui.Column();
         col.Controls.Add(Ui.Text(Loc.T("These profile folders are backed up:", "Diese Profilordner werden gesichert:"), bold: true));
         col.Controls.Add(_folders);
-        col.Controls.Add(Ui.Button(Loc.T("Add custom folder…", "Eigenen Ordner hinzufügen…"), (_, _) => AddCustomFolder()));
+        var buttons = Ui.Row(Ui.Button(Loc.T("Add custom folder…", "Eigenen Ordner hinzufügen…"), (_, _) => AddCustomFolder()));
+        var hasAccountSets = _work.SetupCompleted && SlicerCatalog.All.Any(s => ProfileSetCopier.AccountSets(_work.RepoPath, s).Count > 0);
+        if (hasAccountSets)
+            buttons.Controls.Add(Ui.Button(Loc.T("Use account profiles without sign-in…", "Konto-Profile ohne Anmeldung nutzen…"), (_, _) =>
+            {
+                using var dlg = new CopyProfilesForm(_services);
+                dlg.ShowDialog(this);
+            }));
+        col.Controls.Add(buttons);
         col.Controls.Add(_secretWarning);
         col.Controls.Add(Ui.Text(Loc.T(
             "Newly checked folders are moved into the repository and linked (after a ZIP backup). Unchecked folders are " +

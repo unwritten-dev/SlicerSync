@@ -2,6 +2,10 @@
 
 ## 1.0.3
 
+- New: **Use account profiles without sign-in** (Settings → Profiles). Orca Slicer and Bambu Studio keep separate
+  profiles per signed-in account. This copies the profiles of an account into the folder the slicer uses without
+  sign-in ("default"), with account and cloud IDs removed. Replaced versions are backed up as ZIP first; the
+  account folder stays untouched. The copy reaches your other PCs with the next sync.
 - PrusaSlicer 3 (alpha) is supported. Only your own presets (`%AppData%\PrusaSlicer3-dev\presets\user`) are
   backed up, not the downloaded vendor data, app settings or log file.
 - Folders that lie inside each other can no longer be set up together (this would create a link inside a link).

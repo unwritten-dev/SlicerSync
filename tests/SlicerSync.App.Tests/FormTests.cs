@@ -156,6 +156,9 @@ public sealed class FormTests : IDisposable
         ShowAndClose(new CustomFolderForm(_services, _services.Settings.RepoPath, _services.Settings.Mappings));
         ShowAndClose(new CreateRemoteForm(_services, RemoteProvider.GitHub));
         ShowAndClose(new CreateRemoteForm(_services, RemoteProvider.GitLab));
+        var copy = new CopyProfilesForm(_services);
+        Assert.Contains("4288834837", FindAll<ComboBox>(copy).Single().Items[0]!.ToString());
+        ShowAndClose(copy);
         new HistoryForm(_services).Dispose(); // not shown: it would load the (non-existent) repository
     });
 

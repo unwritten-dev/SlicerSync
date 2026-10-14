@@ -88,6 +88,11 @@ Orca Slicer und Bambu Studio legen Profile pro angemeldetem Benutzer ab (`defaul
 beide PCs dieselben Profile sehen, auf beiden mit demselben Konto anmelden (oder auf beiden gar nicht, dann gilt
 `default`).
 
+Du willst ohne Anmeldung arbeiten, deine Profile liegen aber in einem Konto-Ordner? Dann **Einstellungen → Profile →
+Konto-Profile ohne Anmeldung nutzen…** verwenden. Das kopiert die Profile eines Kontos nach `default` (ohne Konto- und
+Cloud-IDs, ersetzte Versionen vorher als ZIP gesichert, der Konto-Ordner bleibt unverändert). Danach im Slicer auf
+jedem PC abmelden.
+
 ## Wann wird gesichert?
 
 Einstellbar unter **Einstellungen → Synchronisation**:
