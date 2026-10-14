@@ -132,8 +132,7 @@ public sealed class SetupService
         ValidateBasics(settings);
         if (selected.Count == 0)
             throw new SetupException(Loc.T("No profile folder selected.", "Es ist kein Profilordner ausgewählt."));
-        _guard.EnsureSlicersClosed(selected);
-        CheckOverlaps(selected, LinkedMappings(settings));
+        _guard.EnsureSlicersClosed(selected.Concat(settings.Mappings));
 
         var repo = new GitRepository(_git, settings.RepoPath);
         var hasRemote = !string.IsNullOrWhiteSpace(settings.RemoteUrl);
@@ -170,6 +169,13 @@ public sealed class SetupService
                     $"The repository folder is not empty and not a Git repository: {settings.RepoPath}",
                     $"Der Repository-Ordner ist nicht leer und kein Git-Repository: {settings.RepoPath}"));
         }
+
+        // Folders this PC backed up before but that are not selected any more: stop backing them up
+        // (copy back if still linked). Done before the overlap check, so switching e.g. from a whole
+        // custom folder to a built-in subfolder works in one go.
+        var deselected = settings.Mappings.Where(m => m.Enabled && !selected.Any(s => s.SameFolderAs(m))).ToList();
+        StopBackingUp(settings, deselected);
+        CheckOverlaps(selected, LinkedMappings(settings));
 
         var result = new SetupResult();
         var states = selected.ToDictionary(m => m, m => GetState(m, settings.RepoPath));
@@ -282,11 +288,22 @@ public sealed class SetupService
             throw new SetupException(Loc.T(
                 "The repository contains no slicer profiles. Please run \"New setup\" on the first PC first.",
                 "Das Repository enthält keine Slicer-Profile. Bitte zuerst auf dem ersten PC „Neu einrichten“ ausführen."));
+        var result = new SetupResult();
+
+        // A custom folder that overlaps a built-in slicer folder (e.g. a whole slicer folder added by
+        // hand before the slicer was supported) is skipped: the built-in folder covers the profiles.
+        foreach (var custom in mappings.Where(m => m.IsCustom && mappings.Any(b => !b.IsCustom && Overlaps(m, b))).ToList())
+        {
+            mappings.Remove(custom);
+            result.Warnings.Add(Loc.T(
+                $"{custom.DisplayName} was skipped because a built-in slicer folder covers it.",
+                $"{custom.DisplayName} wurde übersprungen, weil ein eingebauter Slicer-Ordner ihn abdeckt."));
+        }
+
         // Custom folders are only known now (from the manifest): check their programs too.
         _guard.EnsureSlicersClosed(mappings);
         CheckOverlaps(mappings, Array.Empty<ProfileMapping>());
 
-        var result = new SetupResult();
         var states = mappings.ToDictionary(m => m, m => GetState(m, settings.RepoPath));
         CheckForeignJunctions(states);
 
@@ -348,14 +365,49 @@ public sealed class SetupService
     public void RemoveMappings(AppSettings settings, IReadOnlyList<ProfileMapping> mappings)
     {
         _guard.EnsureSlicersClosed(mappings);
+        StopBackingUp(settings, mappings);
+    }
+
+    /// <summary>
+    /// Disables folders that are no longer linked and are covered by another, linked folder – e.g. a
+    /// whole custom slicer folder after switching to the built-in subfolder. Without this the old
+    /// entry would keep reporting "no longer linked". Returns the disabled folders.
+    /// </summary>
+    public static IReadOnlyList<ProfileMapping> DisableSuperseded(AppSettings settings)
+    {
+        var linked = LinkedMappings(settings).ToList();
+        var superseded = settings.EnabledMappings
+            .Where(m => GetState(m, settings.RepoPath) != MappingState.Linked &&
+                        linked.Any(l => !l.SameFolderAs(m) && Overlaps(m, l)))
+            .ToList();
+        foreach (var m in superseded)
+            m.Enabled = false;
+        if (superseded.Count > 0)
+            RepoManifest.RemoveFolders(settings.RepoPath, superseded);
+        return superseded;
+    }
+
+    /// <summary>Unlinks (copies back) and disables folders, and removes them from the manifest.</summary>
+    private void StopBackingUp(AppSettings settings, IReadOnlyList<ProfileMapping> mappings)
+    {
+        if (mappings.Count == 0)
+            return;
         foreach (var m in mappings)
         {
-            Unlink(m, settings.RepoPath);
+            if (GetState(m, settings.RepoPath) == MappingState.Linked)
+                Unlink(m, settings.RepoPath);
             var stored = settings.Mappings.FirstOrDefault(x => x.SameFolderAs(m));
             if (stored != null)
                 stored.Enabled = false;
         }
         RepoManifest.RemoveFolders(settings.RepoPath, mappings);
+    }
+
+    private static bool Overlaps(ProfileMapping a, ProfileMapping b)
+    {
+        var pa = Path.GetFullPath(a.OriginalPath).TrimEnd('\\');
+        var pb = Path.GetFullPath(b.OriginalPath).TrimEnd('\\');
+        return IsSameOrInside(pa, pb) || IsSameOrInside(pb, pa);
     }
 
     /// <summary>
@@ -367,12 +419,8 @@ public sealed class SetupService
         var others = existing.Where(e => !toAdd.Any(a => a.SameFolderAs(e))).ToList();
         for (var i = 0; i < toAdd.Count; i++)
         {
-            var path = Path.GetFullPath(toAdd[i].OriginalPath).TrimEnd('\\');
-            var conflict = toAdd.Where((_, j) => j != i).Concat(others).FirstOrDefault(o =>
-            {
-                var other = Path.GetFullPath(o.OriginalPath).TrimEnd('\\');
-                return IsSameOrInside(path, other) || IsSameOrInside(other, path);
-            });
+            var current = toAdd[i];
+            var conflict = toAdd.Where((_, j) => j != i).Concat(others).FirstOrDefault(o => Overlaps(current, o));
             if (conflict != null)
                 throw new SetupException(Loc.T(
                     $"{toAdd[i].DisplayName} overlaps with {conflict.DisplayName}. One folder must not be inside the other – " +

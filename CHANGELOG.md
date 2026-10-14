@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.4
+
+- Fixed: folders deselected in the setup wizard stayed active in the settings. After switching from a whole custom
+  slicer folder to a built-in one, SlicerSync kept warning "the folder is no longer linked" (red tray icon).
+  Deselected folders are now unlinked, disabled and removed from `slicersync.json`.
+- On start, SlicerSync repairs settings left by this bug automatically.
+- Second PC: a custom folder that overlaps a built-in slicer folder is skipped with a note instead of failing.
+- Settings → Profiles: unchecking a folder that is registered but no longer linked now removes it too.
+
 ## 1.0.3
 
 - New: **Use account profiles without sign-in** (Settings → Profiles). Orca Slicer and Bambu Studio keep separate

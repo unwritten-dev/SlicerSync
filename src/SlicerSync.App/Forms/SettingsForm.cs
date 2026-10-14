@@ -11,7 +11,15 @@ public sealed class SettingsForm : Form
 {
     private sealed class FolderItem
     {
-        public FolderItem(ProfileMapping mapping, bool active) { Mapping = mapping; Active = active; }
+        public FolderItem(ProfileMapping mapping, bool active, bool registered = false)
+        {
+            Mapping = mapping;
+            Active = active;
+            Registered = registered;
+        }
+
+        /// <summary>The folder is enabled in the settings (even if its junction is gone).</summary>
+        public bool Registered { get; }
         public ProfileMapping Mapping { get; }
         /// <summary>The folder is currently set up (enabled + junction present).</summary>
         public bool Active { get; }
@@ -198,9 +206,9 @@ public sealed class SettingsForm : Form
                 all.Add(c);
         foreach (var m in all.OrderBy(m => m.RepoRelativePath, StringComparer.OrdinalIgnoreCase))
         {
-            var active = m.Enabled && _work.Mappings.Any(x => x.SameFolderAs(m)) &&
-                         SetupService.GetState(m, _work.RepoPath) == MappingState.Linked;
-            _folders.Items.Add(new FolderItem(m, active), active);
+            var registered = _work.Mappings.Any(x => x.SameFolderAs(m) && x.Enabled);
+            var active = registered && SetupService.GetState(m, _work.RepoPath) == MappingState.Linked;
+            _folders.Items.Add(new FolderItem(m, active, registered), active);
         }
         UpdateSecretWarning();
 
@@ -268,7 +276,8 @@ public sealed class SettingsForm : Form
 
         var items = _folders.Items.Cast<FolderItem>().ToList();
         var toAdd = items.Where((it, i) => _folders.GetItemChecked(i) && !it.Active).Select(it => it.Mapping).ToList();
-        var toRemove = items.Where((it, i) => !_folders.GetItemChecked(i) && it.Active).Select(it => it.Mapping).ToList();
+        // Also folders that are still registered but no longer linked (they show up unchecked).
+        var toRemove = items.Where((it, i) => !_folders.GetItemChecked(i) && (it.Active || it.Registered)).Select(it => it.Mapping).ToList();
 
         if (_work.SetupCompleted && (toAdd.Count > 0 || toRemove.Count > 0))
         {

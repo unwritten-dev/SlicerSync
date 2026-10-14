@@ -1,6 +1,8 @@
+using SlicerSync.Core.Config;
 using SlicerSync.Core.FileSystem;
 using SlicerSync.Core.Setup;
 using SlicerSync.Core.Slicers;
+using SlicerSync.Core.Sync;
 
 namespace SlicerSync.Core.Tests;
 
@@ -148,6 +150,85 @@ public sealed class SlicerTests : IDisposable
         var manifest = RepoManifest.Read(pc.Settings.RepoPath)!;
         Assert.DoesNotContain(manifest.Folders, f => f.Slicer == SlicerKind.Custom);
         Assert.Contains(manifest.Folders, f => f.Slicer == SlicerKind.Prusa3);
+    }
+
+    /// <summary>Main PC: whole Prusa 3 folder as custom folder, set up, then switched in the wizard.</summary>
+    private (TestPc Pc, ProfileMapping Whole, ProfileMapping UserPresets, string Root) PcWithWholePrusa3Folder()
+    {
+        var pc = _env.CreatePc("A");
+        var root = Path.Combine(pc.Paths.RoamingAppData, "PrusaSlicer3-dev");
+        pc.WriteFile(Path.Combine(root, @"presets\user"), "print.yaml", "mine");
+        pc.WriteFile(Path.Combine(root, "shared_runtime"), "log.txt", "x");
+        var whole = pc.Detector.CreateCustomMapping("PrusaSlicer", root, "PrusaSlicer");
+        pc.Setup.RunNewSetup(pc.Settings, new[] { whole });
+        var userPresets = pc.Detector.CreateMapping(SlicerKind.Prusa3, "", @"presets\user");
+        return (pc, whole, userPresets, root);
+    }
+
+    [Fact]
+    public void Wizard_AfterRestore_SwitchToBuiltIn_DisablesOldCustomFolder()
+    {
+        // Exactly the log of the main PC: restore, then new setup with only the built-in folder selected.
+        var (pc, _, userPresets, _) = PcWithWholePrusa3Folder();
+        pc.Setup.Uninstall(pc.Settings);
+
+        pc.Setup.RunNewSetup(pc.Settings, new[] { userPresets });
+
+        Assert.False(pc.Settings.Mappings.Single(m => m.IsCustom).Enabled);
+        Assert.Empty(SyncService.CheckJunctions(pc.Settings)); // no "no longer linked" warning
+        Assert.DoesNotContain(RepoManifest.Read(pc.Settings.RepoPath)!.Folders, f => f.Slicer == SlicerKind.Custom);
+    }
+
+    [Fact]
+    public void Wizard_WithoutRestore_SwitchToBuiltIn_UnlinksOldCustomFolder()
+    {
+        var (pc, _, userPresets, root) = PcWithWholePrusa3Folder();
+
+        pc.Setup.RunNewSetup(pc.Settings, new[] { userPresets });
+
+        Assert.False(Junction.IsJunction(root));
+        Assert.True(Junction.IsJunction(Path.Combine(root, @"presets\user")));
+        Assert.Equal("mine", File.ReadAllText(Path.Combine(root, @"presets\user\print.yaml")));
+        Assert.Empty(SyncService.CheckJunctions(pc.Settings));
+    }
+
+    [Fact]
+    public void DisableSuperseded_RepairsSettingsLeftByOlderVersion()
+    {
+        // State after the bug in 1.0.3: custom folder still enabled but unlinked, built-in folder linked.
+        var (pc, whole, userPresets, _) = PcWithWholePrusa3Folder();
+        pc.Setup.Uninstall(pc.Settings);
+        pc.Setup.RunNewSetup(pc.Settings, new[] { userPresets });
+        pc.Settings.Mappings.Single(m => m.IsCustom).Enabled = true;
+        RepoManifest.AddFolders(pc.Settings.RepoPath, new[] { whole }, pc.Detector);
+        Assert.NotEmpty(SyncService.CheckJunctions(pc.Settings));
+
+        var disabled = SetupService.DisableSuperseded(pc.Settings);
+
+        Assert.Single(disabled);
+        Assert.Empty(SyncService.CheckJunctions(pc.Settings));
+        Assert.DoesNotContain(RepoManifest.Read(pc.Settings.RepoPath)!.Folders, f => f.Slicer == SlicerKind.Custom);
+        Assert.Empty(SetupService.DisableSuperseded(pc.Settings)); // nothing more to do
+    }
+
+    [Fact]
+    public void CloneSetup_SkipsCustomFolderCoveredByBuiltIn()
+    {
+        // The repository as it is now: manifest lists the whole custom folder AND the built-in subfolder.
+        var (a, whole, userPresets, _) = PcWithWholePrusa3Folder();
+        a.Setup.Uninstall(a.Settings);
+        a.Setup.RunNewSetup(a.Settings, new[] { userPresets });
+        RepoManifest.AddFolders(a.Settings.RepoPath, new[] { whole }, a.Detector);
+        a.Sync.Sync();
+
+        var b = _env.CreatePc("B");
+        var result = b.Setup.RunCloneSetup(b.Settings);
+
+        Assert.Contains(result.Warnings, w => w.Contains("PrusaSlicer"));
+        var root = Path.Combine(b.Paths.RoamingAppData, "PrusaSlicer3-dev");
+        Assert.False(Junction.IsJunction(root));
+        Assert.True(Junction.IsJunction(Path.Combine(root, @"presets\user")));
+        Assert.DoesNotContain(b.Settings.Mappings, m => m.IsCustom);
     }
 
     [Fact]
