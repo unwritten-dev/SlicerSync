@@ -415,6 +415,9 @@ public sealed class SetupWizardForm : Form
         settings.RepoPath = Path.GetFullPath(_repoPath.Text.Trim());
         settings.RemoteUrl = _remoteUrl.Text.Trim();
         settings.Branch = _branch.Text.Trim();
+        // "Restore" switches autostart off; setting up again must switch it back on.
+        if (!_services.Settings.SetupCompleted)
+            settings.Autostart = true;
         var selected = IsNewMode ? SelectedMappings() : Array.Empty<ProfileMapping>();
         var newMode = IsNewMode;
         var createOnPush = settings.RemoteUrl == _createOnPushUrl;

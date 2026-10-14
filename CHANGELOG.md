@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.6
+
+- Fixed: after "Restore (undo setup)" and setting up again, autostart stayed off. Setting up now switches
+  autostart back on (it can still be turned off in Settings → General).
+
 ## 1.0.5
 
 - Fixed: the second-PC setup also kept folders active that the other PC had stopped backing up (same warning
