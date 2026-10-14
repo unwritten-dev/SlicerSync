@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.7
 
 - Setup wizard: slicers that were not found are listed in one line, so the page no longer cuts off the
   `physical_printer` warning.
