@@ -61,7 +61,9 @@ public sealed class SlicerTests : IDisposable
     [InlineData("Prusa Connect", SlicerKind.Prusa, false)]
     [InlineData("SuperSlicer 2.5.59", SlicerKind.SuperSlicer, true)]
     [InlineData("PrusaSlicer 3.0.0-alpha1", SlicerKind.Prusa, false)]
-    [InlineData("PrusaSlicer 3.0.0-alpha1", SlicerKind.PrusaAlpha, true)]
+    [InlineData("PrusaSlicer 3.0.0-alpha1", SlicerKind.Prusa3, true)]
+    [InlineData("PrusaSlicer 3.0.0-alpha1", SlicerKind.PrusaAlpha, false)]
+    [InlineData("PrusaSlicer 2.9.0-alpha1", SlicerKind.PrusaAlpha, true)]
     [InlineData("PrusaSlicer 2.9.0-beta2", SlicerKind.PrusaBeta, true)]
     [InlineData("PrusaSlicer 2.9.2", SlicerKind.PrusaAlpha, false)]
     public void MatchesInstalledApp(string displayName, string kind, bool expected) =>
@@ -71,7 +73,7 @@ public sealed class SlicerTests : IDisposable
     public void Detector_FindsPrusaAlphaSeparately()
     {
         var pc = _env.CreatePc("A");
-        pc.InstalledApps.Add("PrusaSlicer 3.0.0-alpha1");
+        pc.InstalledApps.Add("PrusaSlicer 2.9.0-alpha1");
         pc.WriteFile(Path.Combine(pc.Paths.RoamingAppData, @"PrusaSlicer-alpha\print"), "Fine.ini", "x");
 
         var result = pc.Detector.Detect();
@@ -95,6 +97,70 @@ public sealed class SlicerTests : IDisposable
     {
         var guard = new ProcessGuard(() => new[] { "bambu-studio", "superslicer", "notepad" });
         Assert.Equal(new[] { "Bambu Studio", "SuperSlicer" }, guard.RunningSlicers());
+    }
+
+    [Fact]
+    public void Prusa3_BacksUpOnlyUserPresets_NotVendorDataOrLogs()
+    {
+        var pc = _env.CreatePc("A");
+        var root = Path.Combine(pc.Paths.RoamingAppData, "PrusaSlicer3-dev");
+        pc.WriteFile(Path.Combine(root, @"presets\user\prusa-research-fff\PrusaResearch"), "print-0.20mm - Copy.yaml", "x");
+        pc.WriteFile(Path.Combine(root, @"presets\local\prusa-research-fff\PrusaResearch\assets"), "mk4_bed.stl", "x");
+        pc.WriteFile(Path.Combine(root, "shared_runtime"), "log.txt", "x");
+
+        var candidate = Assert.Single(pc.Detector.Detect().Candidates);
+        Assert.Equal(@"Prusa3\presets\user", candidate.RepoRelativePath);
+        Assert.Equal(@"PrusaSlicer 3 – presets\user", candidate.DisplayName);
+
+        pc.Setup.RunNewSetup(pc.Settings, new[] { candidate });
+
+        Assert.True(Junction.IsJunction(Path.Combine(root, @"presets\user")));
+        Assert.False(Junction.IsJunction(root));
+        Assert.True(File.Exists(Path.Combine(pc.Settings.RepoPath, @"Prusa3\presets\user\prusa-research-fff\PrusaResearch\print-0.20mm - Copy.yaml")));
+        Assert.False(Directory.Exists(Path.Combine(pc.Settings.RepoPath, @"Prusa3\presets\local")));
+    }
+
+    [Fact]
+    public void SwitchFromWholeCustomFolder_ToBuiltInPrusa3_InOneStep()
+    {
+        // The situation after adding all of %AppData%\PrusaSlicer3-dev as a custom folder.
+        var pc = _env.CreatePc("A");
+        var root = Path.Combine(pc.Paths.RoamingAppData, "PrusaSlicer3-dev");
+        pc.WriteFile(Path.Combine(root, @"presets\user"), "print.yaml", "mine");
+        pc.WriteFile(Path.Combine(root, "shared_runtime"), "log.txt", "x");
+        var whole = pc.Detector.CreateCustomMapping("PrusaSlicer", root, "PrusaSlicer");
+        pc.Setup.RunNewSetup(pc.Settings, new[] { whole });
+        Assert.True(Junction.IsJunction(root));
+
+        // Adding the inner folder while the whole folder is linked is refused (would nest junctions).
+        var userPresets = pc.Detector.CreateMapping(SlicerKind.Prusa3, "", @"presets\user");
+        Assert.Throws<SetupException>(() => pc.Setup.AddMappings(pc.Settings, new[] { userPresets }));
+
+        // Settings dialog order: remove first, then add.
+        pc.Setup.RemoveMappings(pc.Settings, new[] { whole });
+        pc.Setup.AddMappings(pc.Settings, new[] { userPresets });
+
+        Assert.False(Junction.IsJunction(root));
+        Assert.True(Junction.IsJunction(Path.Combine(root, @"presets\user")));
+        Assert.Equal("mine", File.ReadAllText(Path.Combine(root, @"presets\user\print.yaml")));
+        Assert.True(File.Exists(Path.Combine(root, @"shared_runtime\log.txt")));
+        // A newly set up PC must not link the old whole folder again.
+        var manifest = RepoManifest.Read(pc.Settings.RepoPath)!;
+        Assert.DoesNotContain(manifest.Folders, f => f.Slicer == SlicerKind.Custom);
+        Assert.Contains(manifest.Folders, f => f.Slicer == SlicerKind.Prusa3);
+    }
+
+    [Fact]
+    public void NewSetup_RefusesNestedFolders()
+    {
+        var pc = _env.CreatePc("A");
+        var root = Path.Combine(pc.Paths.RoamingAppData, "PrusaSlicer3-dev");
+        pc.WriteFile(Path.Combine(root, @"presets\user"), "print.yaml", "x");
+        var whole = pc.Detector.CreateCustomMapping("PrusaSlicer", root);
+        var inner = pc.Detector.CreateMapping(SlicerKind.Prusa3, "", @"presets\user");
+
+        Assert.Throws<SetupException>(() => pc.Setup.RunNewSetup(pc.Settings, new[] { whole, inner }));
+        Assert.False(Junction.IsJunction(root));
     }
 
     [Fact]

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.3
+
+- PrusaSlicer 3 (alpha) is supported. Only your own presets (`%AppData%\PrusaSlicer3-dev\presets\user`) are
+  backed up, not the downloaded vendor data, app settings or log file.
+- Folders that lie inside each other can no longer be set up together (this would create a link inside a link).
+- A folder you stop backing up is removed from `slicersync.json`, so a newly set up PC does not link it again.
+- Autostart: the entry is renewed on start if it is missing or points to an old location (e.g. after moving the
+  portable version). The settings show a warning if Windows has switched the autostart off. The log notes
+  whether SlicerSync was started by Windows.
+
 ## 1.0.2
 
 - Fixed: the settings window crashed with "Invoke or BeginInvoke cannot be called on a control until the

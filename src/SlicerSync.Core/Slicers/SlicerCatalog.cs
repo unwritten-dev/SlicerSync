@@ -70,7 +70,7 @@ public static class SlicerCatalog
         new[] { "PrusaSlicer" },
         Channel: "");
 
-    // Alpha and beta builds of PrusaSlicer keep their own data folder, separate from the stable
+    // Alpha and beta builds of PrusaSlicer 2.x keep their own data folder, separate from the stable
     // version, because their profile format may be newer. They are backed up separately as well.
     // Their process is called like the stable one, which the stable entry already covers.
     public static readonly SlicerDefinition PrusaAlpha = new(
@@ -79,7 +79,7 @@ public static class SlicerCatalog
         Array.Empty<string>(),
         Array.Empty<string>(),
         new[] { "physical_printer" },
-        new[] { "PrusaSlicer" },
+        new[] { "PrusaSlicer 2" },
         Channel: "alpha");
 
     public static readonly SlicerDefinition PrusaBeta = new(
@@ -88,8 +88,19 @@ public static class SlicerCatalog
         Array.Empty<string>(),
         Array.Empty<string>(),
         new[] { "physical_printer" },
-        new[] { "PrusaSlicer" },
+        new[] { "PrusaSlicer 2" },
         Channel: "beta");
+
+    // PrusaSlicer 3 (currently alpha) uses a new data folder and layout: the user's own presets are
+    // in presets\user. Everything else there is downloaded vendor data, app settings and logs,
+    // which must not be backed up (they are large, machine-specific or change on every start).
+    public static readonly SlicerDefinition Prusa3 = new(
+        SlicerKind.Prusa3, "PrusaSlicer 3", "PrusaSlicer3-dev", ProfileLayout.Flat,
+        new[] { @"presets\user" },
+        Array.Empty<string>(),
+        Array.Empty<string>(),
+        Array.Empty<string>(),
+        new[] { "PrusaSlicer 3" });
 
     public static readonly SlicerDefinition SuperSlicer = new(
         SlicerKind.SuperSlicer, "SuperSlicer", "SuperSlicer", ProfileLayout.Flat,
@@ -99,7 +110,7 @@ public static class SlicerCatalog
         new[] { "physical_printer" },
         new[] { "SuperSlicer" });
 
-    public static readonly IReadOnlyList<SlicerDefinition> All = new[] { Orca, Bambu, Prusa, PrusaAlpha, PrusaBeta, SuperSlicer };
+    public static readonly IReadOnlyList<SlicerDefinition> All = new[] { Orca, Bambu, Prusa, PrusaAlpha, PrusaBeta, Prusa3, SuperSlicer };
 
     public static SlicerDefinition? Find(string kind) =>
         All.FirstOrDefault(d => string.Equals(d.Kind, kind, StringComparison.OrdinalIgnoreCase));
@@ -112,6 +123,7 @@ public static class SlicerKind
     public const string Prusa = "Prusa";
     public const string PrusaAlpha = "PrusaAlpha";
     public const string PrusaBeta = "PrusaBeta";
+    public const string Prusa3 = "Prusa3";
     public const string SuperSlicer = "SuperSlicer";
     /// <summary>A folder chosen by the user (any other slicer or program).</summary>
     public const string Custom = "Custom";

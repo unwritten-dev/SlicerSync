@@ -17,7 +17,11 @@ public sealed class AppServices
 
     /// <param name="paths">Base folders; tests pass temporary ones. Default: the real user folders.</param>
     /// <param name="installedApps">Installed-apps list for slicer detection; default: the Windows registry.</param>
-    public AppServices(AppPaths? paths = null, Func<IEnumerable<string>>? installedApps = null)
+    /// <param name="runningProcesses">Process names for the running-slicer check; default: the real processes.</param>
+    public AppServices(
+        AppPaths? paths = null,
+        Func<IEnumerable<string>>? installedApps = null,
+        Func<IEnumerable<string>>? runningProcesses = null)
     {
         Paths = paths ?? AppPaths.FromEnvironment();
         Log = new FileLogger(Paths.LogFile);
@@ -25,7 +29,7 @@ public sealed class AppServices
         _settings = Store.Load();
         Loc.SetLanguage(_settings.Language);
         Backups = new BackupService(Paths.BackupDir, Log);
-        Guard = new ProcessGuard();
+        Guard = new ProcessGuard(runningProcesses);
         Detector = new SlicerDetector(Paths, installedApps);
         RefreshGit();
     }

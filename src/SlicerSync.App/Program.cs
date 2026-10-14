@@ -21,7 +21,27 @@ static class Program
         ApplicationConfiguration.Initialize();
 
         var services = new AppServices();
-        services.Log.Info(Loc.T("SlicerSync started.", "SlicerSync gestartet."));
+        var autostarted = args.Contains(Autostart.Argument);
+        services.Log.Info(autostarted
+            ? Loc.T("SlicerSync started (Windows startup).", "SlicerSync gestartet (Windows-Start).")
+            : Loc.T("SlicerSync started.", "SlicerSync gestartet."));
+
+        if (services.Settings.SetupCompleted && services.Settings.Autostart)
+        {
+            try
+            {
+                if (Autostart.Repair())
+                    services.Log.Info(Loc.T("Autostart entry was missing or outdated and has been renewed.",
+                                            "Autostart-Eintrag fehlte oder war veraltet und wurde erneuert."));
+                if (Autostart.IsDisabledByWindows())
+                    services.Log.Warn(Loc.T("Autostart is switched off in Windows (Task Manager → Startup apps).",
+                                            "Autostart ist in Windows ausgeschaltet (Task-Manager → Autostart)."));
+            }
+            catch (Exception ex)
+            {
+                services.Log.Warn(Loc.T("Autostart entry could not be checked", "Autostart-Eintrag konnte nicht geprüft werden"), ex);
+            }
+        }
 
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) =>
@@ -33,7 +53,7 @@ static class Program
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             services.Log.Error(Loc.T("Unexpected error (background)", "Unerwarteter Fehler (Hintergrund)"), e.ExceptionObject as Exception);
 
-        Application.Run(new TrayContext(services, args.Contains(Autostart.Argument)));
+        Application.Run(new TrayContext(services, autostarted));
         services.Log.Info(Loc.T("SlicerSync exited.", "SlicerSync beendet."));
     }
 }

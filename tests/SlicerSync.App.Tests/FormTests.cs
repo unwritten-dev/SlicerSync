@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using SlicerSync.App;
 using SlicerSync.App.Forms;
 using SlicerSync.Core;
@@ -35,7 +35,7 @@ public sealed class FormTests : IDisposable
         foreach (var folder in new[] { "print", "filament", "printer", "physical_printer" })
             Write(Path.Combine(paths.RoamingAppData, "PrusaSlicer", folder), "x.ini");
 
-        _services = new AppServices(paths, () => new[] { "OrcaSlicer", "PrusaSlicer 2.9.2" });
+        _services = new AppServices(paths, () => new[] { "OrcaSlicer", "PrusaSlicer 2.9.2" }, () => Array.Empty<string>());
 
         // A real setup (junctions + local Git repository, no remote) in the temporary folders, so the
         // settings window fills its folder list with checked items like on a real PC.
@@ -45,7 +45,7 @@ public sealed class FormTests : IDisposable
         settings.Autostart = false;
         _services.CreateSetup().RunNewSetup(settings, _services.Detector.Detect().Candidates);
         _services.Store.Save(settings);
-        _services = new AppServices(paths, () => new[] { "OrcaSlicer", "PrusaSlicer 2.9.2" });
+        _services = new AppServices(paths, () => new[] { "OrcaSlicer", "PrusaSlicer 2.9.2" }, () => Array.Empty<string>());
     }
 
     private static void Write(string dir, string file)

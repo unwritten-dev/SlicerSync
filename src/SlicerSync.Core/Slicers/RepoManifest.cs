@@ -39,6 +39,23 @@ public sealed class RepoManifest
         }
     }
 
+    /// <summary>
+    /// Removes folders the user deliberately stopped backing up, so a newly set up PC does not link
+    /// them again. Their files stay in the repository (and its history).
+    /// </summary>
+    public static void RemoveFolders(string repoPath, IEnumerable<ProfileMapping> mappings)
+    {
+        var manifest = Read(repoPath);
+        if (manifest == null)
+            return;
+        var removed = manifest.Folders.RemoveAll(f => mappings.Any(m =>
+            f.Slicer == m.Slicer &&
+            string.Equals(f.ProfileSet, m.ProfileSet, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(f.Folder, m.Folder, StringComparison.OrdinalIgnoreCase)));
+        if (removed > 0)
+            File.WriteAllText(System.IO.Path.Combine(repoPath, FileName), SettingsStore.Serialize(manifest));
+    }
+
     /// <summary>Adds the given folders to the list (never removes entries of other PCs).</summary>
     public static void AddFolders(string repoPath, IEnumerable<ProfileMapping> mappings, SlicerDetector detector)
     {

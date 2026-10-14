@@ -133,6 +133,7 @@ public sealed class SetupService
         if (selected.Count == 0)
             throw new SetupException(Loc.T("No profile folder selected.", "Es ist kein Profilordner ausgewählt."));
         _guard.EnsureSlicersClosed(selected);
+        CheckOverlaps(selected, LinkedMappings(settings));
 
         var repo = new GitRepository(_git, settings.RepoPath);
         var hasRemote = !string.IsNullOrWhiteSpace(settings.RemoteUrl);
@@ -283,6 +284,7 @@ public sealed class SetupService
                 "Das Repository enthält keine Slicer-Profile. Bitte zuerst auf dem ersten PC „Neu einrichten“ ausführen."));
         // Custom folders are only known now (from the manifest): check their programs too.
         _guard.EnsureSlicersClosed(mappings);
+        CheckOverlaps(mappings, Array.Empty<ProfileMapping>());
 
         var result = new SetupResult();
         var states = mappings.ToDictionary(m => m, m => GetState(m, settings.RepoPath));
@@ -321,6 +323,7 @@ public sealed class SetupService
     {
         ValidateBasics(settings);
         _guard.EnsureSlicersClosed(mappings);
+        CheckOverlaps(mappings, LinkedMappings(settings));
 
         var result = new SetupResult();
         var states = mappings.ToDictionary(m => m, m => GetState(m, settings.RepoPath));
@@ -352,7 +355,36 @@ public sealed class SetupService
             if (stored != null)
                 stored.Enabled = false;
         }
+        RepoManifest.RemoveFolders(settings.RepoPath, mappings);
     }
+
+    /// <summary>
+    /// Refuses folders that lie inside each other (or inside an already linked folder): linking them
+    /// would create a junction inside another junction, i.e. inside the repository itself.
+    /// </summary>
+    private static void CheckOverlaps(IReadOnlyList<ProfileMapping> toAdd, IEnumerable<ProfileMapping> existing)
+    {
+        var others = existing.Where(e => !toAdd.Any(a => a.SameFolderAs(e))).ToList();
+        for (var i = 0; i < toAdd.Count; i++)
+        {
+            var path = Path.GetFullPath(toAdd[i].OriginalPath).TrimEnd('\\');
+            var conflict = toAdd.Where((_, j) => j != i).Concat(others).FirstOrDefault(o =>
+            {
+                var other = Path.GetFullPath(o.OriginalPath).TrimEnd('\\');
+                return IsSameOrInside(path, other) || IsSameOrInside(other, path);
+            });
+            if (conflict != null)
+                throw new SetupException(Loc.T(
+                    $"{toAdd[i].DisplayName} overlaps with {conflict.DisplayName}. One folder must not be inside the other – " +
+                    "please stop backing up one of them first.",
+                    $"{toAdd[i].DisplayName} überschneidet sich mit {conflict.DisplayName}. Ein Ordner darf nicht im anderen liegen – " +
+                    "bitte zuerst einen der beiden nicht mehr sichern."));
+        }
+    }
+
+    /// <summary>Folders of this PC that are currently backed up (enabled and linked).</summary>
+    private static IEnumerable<ProfileMapping> LinkedMappings(AppSettings settings) =>
+        settings.EnabledMappings.Where(m => GetState(m, settings.RepoPath) == MappingState.Linked);
 
     // ---------------------------------------------------------------- Uninstall
 

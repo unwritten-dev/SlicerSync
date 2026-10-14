@@ -150,6 +150,10 @@ public sealed class SettingsForm : Form
         _language.Items.Add(new LanguageItem(Loc.German, "Deutsch"));
         col.Controls.Add(Ui.Row(new Label { Text = "Language / Sprache:", AutoSize = true, Margin = new Padding(0, 6, 8, 0) }, _language));
         col.Controls.Add(_autostart);
+        if (Autostart.IsDisabledByWindows())
+            col.Controls.Add(Ui.Warning(Loc.T(
+                "Windows has switched off the autostart of SlicerSync. Switch it back on in Task Manager → Startup apps.",
+                "Windows hat den Autostart von SlicerSync ausgeschaltet. Wieder einschalten unter Task-Manager → Autostart.")));
         col.Controls.Add(_notifySuccess);
         col.Controls.Add(_notifyError);
         col.Controls.Add(new Label { Height = 8 });
