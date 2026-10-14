@@ -150,6 +150,29 @@ public sealed class FormTests : IDisposable
         wizard.Close();
     });
 
+    /// <summary>History, settings and wizard are shown modeless (like the tray does): their close/cancel button must close them.</summary>
+    [Fact]
+    public void CloseAndCancelButtons_CloseModelessWindows() => OnSta(() =>
+    {
+        foreach (var (form, text) in new (Form, string)[]
+                 {
+                     (new HistoryForm(_services), "Close"),
+                     (new SettingsForm(_services), "Cancel"),
+                     (new SetupWizardForm(_services), "Cancel"),
+                 })
+        {
+            form.Show();
+            // The history loads its commits after opening and is disabled meanwhile.
+            var until = DateTime.Now.AddSeconds(10);
+            do Application.DoEvents(); while (!form.Enabled && DateTime.Now < until);
+            Assert.True(form.Enabled, $"{form.GetType().Name} stayed disabled");
+            FindAll<Button>(form).Single(b => b.Text == text).PerformClick();
+            Application.DoEvents();
+            Assert.False(form.Visible, $"{form.GetType().Name}: \"{text}\" did not close the window");
+            form.Dispose();
+        }
+    });
+
     [Fact]
     public void Dialogs_Open() => OnSta(() =>
     {

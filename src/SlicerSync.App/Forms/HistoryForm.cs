@@ -42,6 +42,8 @@ public sealed class HistoryForm : Form
 
         var refresh = new Button { Text = Loc.T("Refresh", "Aktualisieren"), AutoSize = true };
         var close = new Button { Text = Loc.T("Close", "Schließen"), AutoSize = true, DialogResult = DialogResult.Cancel };
+        // DialogResult only closes modal dialogs; the history is shown modeless.
+        close.Click += (_, _) => Close();
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(8), FlowDirection = FlowDirection.RightToLeft };
         buttons.Controls.AddRange(new Control[] { close, refresh, _restore });
 

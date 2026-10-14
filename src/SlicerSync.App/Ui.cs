@@ -177,6 +177,8 @@ public static class Ui
     {
         var ok = new Button { Text = okText, AutoSize = true };
         var cancel = new Button { Text = Loc.T("Cancel", "Abbrechen"), AutoSize = true, DialogResult = DialogResult.Cancel };
+        // DialogResult only closes modal dialogs; settings and wizard are shown modeless.
+        cancel.Click += (_, _) => form.Close();
         var bar = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Padding = new Padding(8) };
         bar.Controls.AddRange(new Control[] { cancel, ok });
         form.AcceptButton = ok;

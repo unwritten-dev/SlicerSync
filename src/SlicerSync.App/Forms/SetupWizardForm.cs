@@ -95,6 +95,8 @@ public sealed class SetupWizardForm : Form
         Controls.Add(_header);
 
         _back.Click += (_, _) => Navigate(-1);
+        // DialogResult only closes modal dialogs; the wizard is shown modeless.
+        _cancel.Click += (_, _) => Close();
         _next.Click += async (_, _) => await OnNext();
         _gitLink.LinkClicked += (_, _) => Ui.Open(GitLocator.DownloadUrl);
         // ItemCheck fires before the state changes: compute with the new value instead of deferring.

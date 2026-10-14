@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.9
+
+- Fixed: the **Close** button of the history and the **Cancel** buttons of the settings and the setup wizard did
+  nothing (only the window's X worked).
+
 ## 1.0.8
 
 - New: **automatic updates**. SlicerSync checks GitHub for a newer release on start and once a day, downloads it,
