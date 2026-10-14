@@ -1,5 +1,4 @@
 using SlicerSync.Core;
-using SlicerSync.Core.Setup;
 
 namespace SlicerSync.App;
 
@@ -26,27 +25,6 @@ static class Program
         services.Log.Info(autostarted
             ? Loc.T("SlicerSync started (Windows startup).", "SlicerSync gestartet (Windows-Start).")
             : Loc.T("SlicerSync started.", "SlicerSync gestartet."));
-
-        if (services.Settings.SetupCompleted)
-        {
-            try
-            {
-                var settings = services.Settings.Clone();
-                var superseded = SetupService.DisableSuperseded(settings);
-                if (superseded.Count > 0)
-                {
-                    services.ApplySettings(settings);
-                    foreach (var m in superseded)
-                        services.Log.Info(Loc.T(
-                            $"{m.DisplayName} is no longer backed up: another backed-up folder covers it.",
-                            $"{m.DisplayName} wird nicht mehr gesichert: Ein anderer gesicherter Ordner deckt ihn ab."));
-                }
-            }
-            catch (Exception ex)
-            {
-                services.Log.Warn(Loc.T("Profile folders could not be checked", "Profilordner konnten nicht geprüft werden"), ex);
-            }
-        }
 
         if (services.Settings.SetupCompleted && services.Settings.Autostart)
         {

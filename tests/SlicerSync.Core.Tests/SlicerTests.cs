@@ -232,6 +232,29 @@ public sealed class SlicerTests : IDisposable
     }
 
     [Fact]
+    public void CloneSetupAgain_AfterMainPcSwitched_DropsOldCustomFolder()
+    {
+        // Second PC set up while the main PC still backed up the whole Prusa 3 folder.
+        var (a, whole, userPresets, _) = PcWithWholePrusa3Folder();
+        var b = _env.CreatePc("B");
+        b.Setup.RunCloneSetup(b.Settings);
+        var rootB = Path.Combine(b.Paths.RoamingAppData, "PrusaSlicer3-dev");
+        Assert.True(Junction.IsJunction(rootB));
+
+        // Main PC switches to the built-in folder and syncs.
+        a.Setup.RunNewSetup(a.Settings, new[] { userPresets });
+        a.Sync.Sync();
+
+        // Second PC runs the second-PC setup again.
+        var result = b.Setup.RunCloneSetup(b.Settings);
+
+        Assert.False(Junction.IsJunction(rootB));
+        Assert.True(Junction.IsJunction(Path.Combine(rootB, @"presets\user")));
+        Assert.False(b.Settings.Mappings.Single(m => m.IsCustom).Enabled);
+        Assert.Empty(SyncService.CheckJunctions(b.Settings));
+    }
+
+    [Fact]
     public void NewSetup_RefusesNestedFolders()
     {
         var pc = _env.CreatePc("A");

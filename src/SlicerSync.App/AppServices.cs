@@ -79,6 +79,32 @@ public sealed class AppServices
         Autostart.Apply(settings.Autostart);
     }
 
+    /// <summary>
+    /// Disables folders that are no longer linked and are covered by another backed-up folder
+    /// (see <see cref="SetupService.DisableSuperseded"/>). Called after every configuration change.
+    /// </summary>
+    public void RepairSuperseded()
+    {
+        if (!_settings.SetupCompleted)
+            return;
+        try
+        {
+            var settings = _settings.Clone();
+            var superseded = SetupService.DisableSuperseded(settings);
+            if (superseded.Count == 0)
+                return;
+            ApplySettings(settings);
+            foreach (var m in superseded)
+                Log.Info(Loc.T(
+                    $"{m.DisplayName} is no longer backed up: another backed-up folder covers it.",
+                    $"{m.DisplayName} wird nicht mehr gesichert: Ein anderer gesicherter Ordner deckt ihn ab."));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(Loc.T("Profile folders could not be checked", "Profilordner konnten nicht geprüft werden"), ex);
+        }
+    }
+
     public SetupService CreateSetup() => new(RequireGit(), Backups, Guard, Detector, Log);
 
     public HistoryService CreateHistory() => new(() => _settings, RequireGit(), Backups, Log);

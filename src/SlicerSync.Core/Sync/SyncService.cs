@@ -198,8 +198,10 @@ public sealed class SyncService
             warnings.Add(state switch
             {
                 MappingState.NotLinked => Loc.T(
-                    $"{m.DisplayName}: the folder is no longer linked – changes are not backed up. Please run the setup wizard again.",
-                    $"{m.DisplayName}: Ordner ist nicht mehr verlinkt – Änderungen werden nicht gesichert. Bitte im Einrichtungsassistenten erneut einrichten."),
+                    $"{m.DisplayName}: the folder is no longer linked – changes are not backed up. " +
+                    "Check it again in Settings → Profiles to back it up, or leave it unchecked and click OK to remove it.",
+                    $"{m.DisplayName}: Ordner ist nicht mehr verlinkt – Änderungen werden nicht gesichert. " +
+                    "In Einstellungen → Profile wieder anhaken, um ihn zu sichern, oder abgehakt lassen und mit OK entfernen."),
                 MappingState.ForeignJunction => Loc.T(
                     $"{m.DisplayName}: the junction points to a different location.",
                     $"{m.DisplayName}: Junction zeigt auf einen anderen Ort."),

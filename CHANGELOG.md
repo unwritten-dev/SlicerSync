@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.5
+
+- Fixed: the second-PC setup also kept folders active that the other PC had stopped backing up (same warning
+  "the folder is no longer linked"). They are now unlinked and disabled before anything new is linked.
+- The automatic repair of such leftovers now runs after every setup and settings change, not only on start.
+- The warning for an unlinked folder now says how to fix it (Settings → Profiles).
+
 ## 1.0.4
 
 - Fixed: folders deselected in the setup wizard stayed active in the settings. After switching from a whole custom

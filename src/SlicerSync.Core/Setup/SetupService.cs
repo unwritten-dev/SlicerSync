@@ -301,8 +301,13 @@ public sealed class SetupService
         }
 
         // Custom folders are only known now (from the manifest): check their programs too.
-        _guard.EnsureSlicersClosed(mappings);
-        CheckOverlaps(mappings, Array.Empty<ProfileMapping>());
+        _guard.EnsureSlicersClosed(mappings.Concat(settings.Mappings));
+
+        // Folders this PC backed up before that are no longer in the repository's list (another PC
+        // stopped backing them up): stop backing them up here too, before linking anything new.
+        var dropped = settings.Mappings.Where(m => m.Enabled && !mappings.Any(n => n.SameFolderAs(m))).ToList();
+        StopBackingUp(settings, dropped);
+        CheckOverlaps(mappings, LinkedMappings(settings));
 
         var states = mappings.ToDictionary(m => m, m => GetState(m, settings.RepoPath));
         CheckForeignJunctions(states);

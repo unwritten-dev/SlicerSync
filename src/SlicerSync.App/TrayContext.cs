@@ -180,6 +180,7 @@ public sealed class TrayContext : ApplicationContext
     /// <summary>Applies the current settings to the scheduler, menu and status display.</summary>
     private void ApplyConfiguration()
     {
+        _services.RepairSuperseded();
         var s = _services.Settings;
         BuildMenu();
         if (!_services.GitAvailable)
