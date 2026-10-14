@@ -1,0 +1,19 @@
+name: Feature request / Wunsch
+description: An idea or another slicer to support. / Eine Idee oder ein weiterer Slicer.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like? / Was wünschst du dir?
+      description: Describe the problem you want to solve. / Beschreibe, welches Problem gelöst werden soll.
+    validations:
+      required: true
+  - type: textarea
+    id: slicer
+    attributes:
+      label: Another slicer? / Weiterer Slicer?
+      description: |
+        Name, version and where it stores its own profiles (in the slicer often *Help → Show Configuration Folder*).
+        Name, Version und wo er eigene Profile ablegt (im Slicer oft *Hilfe → Konfigurationsordner anzeigen*).
+      placeholder: "%AppData%\\ElegooSlicer\\user\\default\\{filament, machine, process}"

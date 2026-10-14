@@ -268,14 +268,18 @@ public sealed class SetupWizardForm : Form
         _foldersLoaded = true;
 
         var detection = _services.Detector.Detect();
-        var lines = detection.Slicers.Select(s => $"{s.Definition.DisplayName}: " + (s.Installed, s.ProfileRootExists) switch
+        var found = detection.Slicers.Where(s => s.Installed || s.ProfileRootExists).ToList();
+        var lines = found.Select(s => $"{s.Definition.DisplayName}: " + (s.Installed, s.ProfileRootExists) switch
         {
             (true, true) => Loc.T("installed, profiles found", "installiert, Profile gefunden"),
             (false, true) => Loc.T("profiles found", "Profile gefunden"),
-            (true, false) => Loc.T($"installed, but no profile folder at {s.ProfileRoot}",
-                                   $"installiert, aber kein Profilordner unter {s.ProfileRoot}"),
-            _ => Loc.T("not found", "nicht gefunden"),
+            _ => Loc.T($"installed, but no profile folder at {s.ProfileRoot}",
+                       $"installiert, aber kein Profilordner unter {s.ProfileRoot}"),
         }).ToList();
+        // All slicers that were looked for but not found in one line, to keep the page compact.
+        var missing = detection.Slicers.Except(found).Select(s => s.Definition.DisplayName).ToList();
+        if (missing.Count > 0)
+            lines.Add(Loc.T("Not found: ", "Nicht gefunden: ") + string.Join(", ", missing));
         if (detection.Slicers.Any(s => s.Installed && !s.ProfileRootExists))
             lines.Add(Loc.T(
                 "Tip: in the slicer, \"Help → Show Configuration Folder\" shows where it keeps its profiles. " +

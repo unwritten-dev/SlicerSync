@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Setup wizard: slicers that were not found are listed in one line, so the page no longer cuts off the
+  `physical_printer` warning.
+- Documentation: new README with screenshots, quick start and FAQ (English and German), `CONTRIBUTING.md`,
+  `SECURITY.md`, issue and pull request templates.
+
 ## 1.0.6
 
 - New: **additional backup locations** (Settings → Backup locations). Besides the remote repository, every sync

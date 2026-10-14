@@ -1,29 +1,70 @@
-# SlicerSync
+<p align="center">
+  <img src="docs/images/icon.png" width="64" height="64" alt="SlicerSync icon">
+</p>
 
-**English** | [Deutsch](README.de.md)
+<h1 align="center">SlicerSync</h1>
 
-SlicerSync is a small Windows tray app that automatically backs up your own slicer profiles to a private Git
-repository (GitHub, GitLab, …), with full version history. Set it up once, and every profile you save in your
-slicer is backed up and synced to your other PCs. No command line needed.
+<p align="center">
+  <b>Back up and sync your 3D slicer profiles with Git – automatically, with full history.</b><br>
+  <b>English</b> | <a href="README.de.md">Deutsch</a>
+</p>
 
-**Supported out of the box:** Orca Slicer, Bambu Studio, PrusaSlicer (including alpha/beta builds), SuperSlicer.
-**Any other slicer** (Cura, Creality Print, ElegooSlicer, …) can be added as a custom folder.
+<p align="center">
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/unwritten-dev/SlicerSync?label=download" alt="Latest release"></a>
+  <a href="../../actions/workflows/ci.yml"><img src="https://github.com/unwritten-dev/SlicerSync/actions/workflows/ci.yml/badge.svg" alt="Build status"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-blue" alt="Windows 10 | 11">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/unwritten-dev/SlicerSync" alt="MIT license"></a>
+</p>
 
-## Download
+SlicerSync is a small Windows tray app. It backs up the printer, filament and process profiles you create in your
+slicer to a **private Git repository** (GitHub, GitLab, a NAS …) and keeps them in sync between your PCs. Set it up
+once with a wizard – no command line, no Git knowledge needed.
 
-Get **`SlicerSync-Setup-<version>.exe`** from the [latest release](../../releases/latest) and run it.
+<p align="center">
+  <img src="docs/images/wizard-folders.en.png" width="420" alt="Setup wizard: profile folders">
+  <img src="docs/images/history.en.png" width="420" alt="History with restore">
+</p>
 
-- If **Git for Windows** is not installed yet, the setup downloads and installs it for you (the SHA-256 checksum is
-  verified). It includes the **Git Credential Manager**, which handles sign-in to GitHub/GitLab.
-- The .NET runtime is built into the app, so nothing else needs to be installed.
-- The release also contains a portable `SlicerSync-<version>-portable.exe`. It needs Git for Windows to be
-  installed already.
+## Features
 
-Requirements: Windows 10 or 11 (64-bit).
+- **Supported slicers:** Orca Slicer, Bambu Studio, PrusaSlicer (also 2.x alpha/beta and PrusaSlicer 3), SuperSlicer –
+  plus **any other program** as a custom folder (Cura, Creality Print, ElegooSlicer, …).
+- **Automatic backup** shortly after you save a profile, at an interval, daily or manually.
+- **Sync between PCs:** profiles saved on one PC show up on the others.
+- **Full history:** see every change and restore a single profile to an older state.
+- **Extra copies** on a NAS, a USB drive or in a cloud folder (OneDrive, Dropbox, Google Drive) – also offline.
+- **Creates the repository for you** on GitHub (private) or GitLab, right from the wizard.
+- **Safe:** a verified ZIP backup before every change, nothing is overwritten on conflicts, undo at any time.
+- **No passwords stored:** sign-in is handled by the Git Credential Manager in Windows.
+- **English and German** user interface.
+
+## Download and install
+
+1. Download **`SlicerSync-Setup-<version>.exe`** from the [latest release](../../releases/latest).
+2. Run it. If **Git for Windows** is missing, the setup downloads and installs it (checksum verified), including the
+   **Git Credential Manager** for signing in to GitHub/GitLab. The .NET runtime is built into the app.
+3. At the end SlicerSync starts and opens the setup wizard.
+
+> **"Windows protected your PC"?** SlicerSync is not code-signed (certificates are expensive for a free hobby
+> project), so Windows SmartScreen warns on first start. Click **More info → Run anyway**. The installer is built
+> from this repository by [GitHub Actions](../../actions/workflows/release.yml).
+
+Requirements: Windows 10 or 11 (64-bit). A portable `SlicerSync-<version>-portable.exe` is also part of each release;
+it needs Git for Windows to be installed already.
+
+## Quick start
+
+1. **Close your slicers.**
+2. In the wizard choose **New setup**, keep the detected profile folders checked and click **Create on GitHub…**
+   (or GitLab, or enter the URL of an empty private repository).
+3. Click **Set up**. Done – SlicerSync now runs in the notification area and backs up every change.
+
+**On your second PC:** install SlicerSync, choose **Second PC – clone an existing repository** and enter the same
+repository URL.
 
 ## How it works
 
-1. Your profile folders are moved into a repository folder (default: `%UserProfile%\SlicerProfiles`).
+1. Your profile folders are moved into a repository folder (default `%UserProfile%\SlicerProfiles`).
 2. At the original location a directory junction (`mklink /J`) points to the new location. The slicers keep working
    as before; Git sees the real files.
 3. A sync runs `git add -A`, commits only if something changed, then `git pull --rebase` and `git push`.
@@ -31,99 +72,82 @@ Requirements: Windows 10 or 11 (64-bit).
 | Slicer | Original location | In the repository |
 |---|---|---|
 | Orca Slicer | `%AppData%\OrcaSlicer\user\<default or user ID>\{filament, machine, process}` | `Orca\…` |
-| Bambu Studio | `%AppData%\BambuStudio\user\<user ID>\{filament, machine, process}` | `Bambu\…` |
+| Bambu Studio | `%AppData%\BambuStudio\user\<default or user ID>\{filament, machine, process}` | `Bambu\…` |
 | PrusaSlicer | `%AppData%\PrusaSlicer\{print, filament, printer, physical_printer}` | `Prusa\…` |
 | PrusaSlicer 2.x alpha/beta | `%AppData%\PrusaSlicer-alpha\…` / `%AppData%\PrusaSlicer-beta\…` (same subfolders) | `PrusaAlpha\…` / `PrusaBeta\…` |
 | PrusaSlicer 3 (alpha) | `%AppData%\PrusaSlicer3-dev\presets\user` | `Prusa3\presets\user` |
 | SuperSlicer | `%AppData%\SuperSlicer\{print, filament, printer, physical_printer}` | `SuperSlicer\…` |
 | Custom folder | any folder you choose | `Custom\<name>` |
 
-Only these subfolders are backed up, never the whole application folder. Caches and machine-specific settings
-(e.g. `PrusaSlicer.ini`) are left alone.
-
-## First setup
-
-On first start the setup wizard opens (English by default, German can be selected on the first page):
-
-1. **Welcome:** checks that Git is available.
-2. **Setup type:** *New setup* (this PC has the profiles) or *Second PC* (see below).
-3. **Profile folders:** choose the detected folders, or add any other folder with **Add custom folder…**.
-4. **Repository:** local folder, remote URL and branch.
-   - Click **Create on GitHub…** to create a new private repository directly from the app. If needed, the Git
-     Credential Manager opens a browser sign-in first.
-   - Click **Create on GitLab…** to use a new GitLab project. GitLab creates it as a private project on the first
-     upload.
-   - Or create an **empty, private** repository yourself and paste its HTTPS URL.
-5. **Summary → Set up:** the slicers must be closed. SlicerSync creates a ZIP backup, moves and links the folders,
-   makes the first commit and uploads it.
+Only these profile folders are backed up, never the whole application folder. Caches, downloaded vendor data and
+machine-specific settings stay where they are.
 
 > ⚠ **`physical_printer`** (PrusaSlicer/SuperSlicer) can contain API keys and passwords for PrusaLink/OctoPrint.
 > Your repository **must be private**.
 
-SlicerSync never stores credentials itself. Sign-in is handled entirely by the Git Credential Manager, which keeps it
-in the Windows Credential Manager.
+## Using it
 
-Folders that are already set up (existing junctions) are detected and skipped. You can safely run the wizard again,
-e.g. after a slicer update recreated a folder.
+### The setup wizard
 
-### Second PC
+1. **Welcome:** language selection and Git check.
+2. **Setup type:** *New setup* (this PC has the profiles) or *Second PC*.
+3. **Profile folders:** detected folders, plus **Add custom folder…** for any other program. Optionally pick the
+   program's EXE, so SlicerSync can check that it is closed before moving files.
+4. **Repository:** local folder, remote URL, branch – or **Create on GitHub…** / **Create on GitLab…**.
+5. **Summary → Set up:** ZIP backup, move and link the folders, first commit and upload.
 
-In the wizard choose **Second PC – clone an existing repository** and enter the same remote URL. SlicerSync then:
+Folders that are already set up are detected and skipped, so you can run the wizard again at any time (e.g. after a
+slicer update recreated a folder).
 
-1. clones the repository,
-2. backs up the existing local profile folders as ZIP,
-3. replaces them with junctions to the repository. The repository state wins.
+<p align="center">
+  <img src="docs/images/wizard-repository.en.png" width="420" alt="Setup wizard: repository">
+  <img src="docs/images/settings-profiles.en.png" width="420" alt="Settings: profile folders">
+</p>
 
-Profiles that only existed on this PC can be found in the ZIP backup afterwards (tray menu → **Open backups**).
-Custom folders are mapped to the same place on the second PC (relative to `%AppData%`, `%LocalAppData%` or your
-user folder).
+### When does SlicerSync back up?
 
-Orca Slicer and Bambu Studio store profiles per signed-in user (`default` or your user ID). To share profiles between
-PCs, sign in with the same account on both PCs (or with none, which means `default`).
+Under **Settings → Sync**: shortly after a file change (default, 30 s after the last change), at a fixed interval,
+daily at a fixed time, or manually only. In every mode there is a sync on startup (to fetch changes from your other
+PCs) and **Sync now** in the tray menu. A commit is only made when files actually changed.
 
-Want to work without signing in, but your profiles are in an account folder? Use **Settings → Profiles → Use account
-profiles without sign-in…**. It copies the profiles of an account into `default` (account and cloud IDs removed,
-replaced versions backed up as ZIP first, the account folder untouched). Then sign out in the slicer on every PC.
+### Tray icon
 
-## When does SlicerSync back up?
+The dot on the icon shows the state: **green** OK, **yellow** syncing, **red** error or conflict, **grey** not set up.
+Right-click for the menu (Sync now, History, Settings, log, folders, setup wizard, Restore, Exit); double-click opens
+the History.
 
-Set under **Settings → Sync**:
+### History and restoring a profile
 
-- **Shortly after a file change** (default): SlicerSync watches the repository folder and syncs once 30 seconds
-  (configurable) after the last change.
-- **At a fixed interval:** every *n* minutes.
-- **Daily** at a fixed time.
-- **Manually only.**
+Double-click the tray icon. Select a commit and a file and click **Restore file to this state…**. The current version
+is backed up as ZIP first. Restart the slicer afterwards. Deleted profiles can be brought back the same way (select
+the commit in which the file was deleted). The history is kept forever; the window shows the last 200 commits.
 
-In every mode you also get a sync on startup (can be turned off) to fetch changes from your other PCs, and
-**Sync now** in the tray menu. A commit is only made when files actually changed.
+### Additional backup locations
 
-## Additional backup locations
+Under **Settings → Backup locations** add folders on a NAS (`\\nas\backup`), a USB drive or a cloud folder (OneDrive,
+Dropbox, or Google Drive via *Google Drive for desktop*, e.g. `G:\My Drive\Backups`). Every sync also stores a
+complete copy with history there – even without internet. Each PC writes to its own repository
+(`SlicerProfiles-<computer>.git`), so several PCs can share one location. Unreachable locations only cause a note.
+To restore from such a copy, run the wizard as **Second PC** with the `.git` folder as remote URL.
 
-Under **Settings → Backup locations** you can add folders on a NAS (`\\nas\backup`), a USB drive or a cloud folder
-(OneDrive, Dropbox, or Google Drive via *Google Drive for desktop*, e.g. `G:\My Drive\Backups`). Every sync then also
-stores a complete copy with history there – even without internet.
+<p align="center">
+  <img src="docs/images/settings-backup.en.png" width="420" alt="Settings: backup locations">
+  <img src="docs/images/settings-sync.en.png" width="420" alt="Settings: sync">
+</p>
 
-- Each PC writes to its own repository in the location (`SlicerProfiles-<computer>.git`), so several PCs can share
-  one NAS folder without getting in each other's way.
-- If a location is not reachable (drive unplugged, NAS off), you only get a note; the next sync catches up.
-- To restore, run the setup wizard as **Second PC** and enter the `.git` folder as remote URL, or use any Git tool.
+### Orca Slicer and Bambu Studio accounts
 
-## Tray icon and menu
+These slicers keep separate profiles per signed-in account (folder `default` without sign-in, otherwise your user ID).
+To see the same profiles on every PC, **sign in with the same account everywhere** – or sign in nowhere.
 
-The dot on the icon shows the state: **green** = OK, **yellow** = syncing, **red** = error or conflict,
-**grey** = not set up. Right-click for the menu: status, Sync now, History, Settings, log, repository and backup
-folders, setup wizard, Restore, Exit.
+If your profiles are in an account folder but you want to work without signing in, use **Settings → Profiles → Use
+account profiles without sign-in…**. It copies them into `default` (account and cloud IDs removed, replaced versions
+backed up as ZIP, the account folder untouched). Then sign out in the slicer on every PC.
 
-Double-click the icon to open the **History**: recent commits with date and changed files. Select a file and click
-**Restore file to this state…**. The current version is backed up as ZIP first. Restart the slicer afterwards.
+### Conflicts
 
-## If a conflict is reported
-
-A conflict happens when two PCs changed the same profile file differently. SlicerSync then aborts the rebase and
-overwrites nothing. Your local commit is kept and the icon turns red.
-
-To resolve it once by hand in the repository folder (e.g. with Git Bash):
+A conflict happens when two PCs changed the same profile differently before syncing. SlicerSync then stops and
+overwrites nothing; the icon turns red. To resolve it, open the repository folder in Git Bash:
 
 ```bash
 cd ~/SlicerProfiles
@@ -134,131 +158,79 @@ git rebase --continue
 git push
 ```
 
-Alternatively run `git rebase --abort`, restore the file on this PC to the remote state via the History, and sync
-again.
+Alternatively run `git rebase --abort`, restore the file to the other PC's state via the History, and sync again.
 
-## Restore (undo setup)
+### Restore (undo setup) and uninstall
 
-Tray menu → **Restore (undo setup)…** (close the slicers first). All junctions are removed and the folders are
-copied back to their original location. The repository with its history is kept and can be deleted by hand
-afterwards. Autostart is turned off.
+Tray menu → **Restore (undo setup)…** removes all junctions and copies the folders back to their original location.
+The repository and its history stay. Single folders can be unchecked in **Settings → Profiles**.
 
-The folders are **copied**, not moved back. If the files disappeared from the repository folder, a later sync could
-send that as a deletion to your other PCs.
+Uninstalling (Windows *Settings → Apps*) removes the program only; the junctions stay and the slicers keep working.
+Run **Restore** first if you want the folders back in their original place.
 
-Single folders can also be unchecked (restored) or added in **Settings → Profiles**.
+## FAQ and troubleshooting
+
+<details>
+<summary><b>My second PC shows fewer profiles than the first one.</b></summary>
+
+Usually Orca Slicer or Bambu Studio is signed in to an account on one PC and not on the other – see
+[Orca Slicer and Bambu Studio accounts](#orca-slicer-and-bambu-studio-accounts).
+</details>
+
+<details>
+<summary><b>SlicerSync does not start with Windows.</b></summary>
+
+Check **Settings → General → Start with Windows** and *Task Manager → Startup apps* (Windows may have disabled it;
+SlicerSync then shows a warning in the settings). Windows 11 also likes to hide new tray icons behind the **^** arrow.
+The log (tray menu → *Open log*) says "SlicerSync started (Windows startup)" when Windows started it.
+</details>
+
+<details>
+<summary><b>The icon is red: "the folder is no longer linked".</b></summary>
+
+A slicer update or another tool replaced a profile folder. Run the setup wizard again (it relinks the folder), or
+uncheck the folder in **Settings → Profiles** if you no longer want to back it up.
+</details>
+
+<details>
+<summary><b>"Repository not found" / sign-in problems.</b></summary>
+
+Check the URL in **Settings → Repository**. If the repository was deleted or renamed, create a new one (for a fresh
+start: Restore, then run the wizard again). To sign in again, remove the `git:https://github.com` entry in the
+Windows Credential Manager; the next sync asks for sign-in.
+</details>
+
+<details>
+<summary><b>Can I use SlicerSync without GitHub or GitLab?</b></summary>
+
+Yes. Leave the remote URL empty: you still get the local history, and with **backup locations** a copy on a NAS,
+USB drive or cloud folder. You can also use a bare repository on a network share as remote URL.
+</details>
+
+<details>
+<summary><b>Does SlicerSync send my data anywhere else?</b></summary>
+
+No. Your profiles only go to the repository and backup locations you configure. SlicerSync has no server, no
+telemetry and stores no passwords.
+</details>
 
 ## Where things are stored
 
 | What | Where |
 |---|---|
 | Settings | `%AppData%\SlicerSync\settings.json` |
-| Log | `%LocalAppData%\SlicerSync\slicersync.log` (rotated at 1 MB) |
+| Log | `%LocalAppData%\SlicerSync\slicersync.log` |
 | ZIP backups | `%LocalAppData%\SlicerSync\backups\` |
 | Profiles + Git repository | default `%UserProfile%\SlicerProfiles` |
-| Autostart | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\SlicerSync` |
 
-The repository also contains `slicersync.json`. It lists the backed-up folders, so a second PC knows what to link.
-There is also a `.gitattributes` file (`* -text`) so files are stored byte for byte.
+The repository also contains `slicersync.json` (the list of backed-up folders, used by a second PC) and
+`.gitattributes` (files are stored byte for byte).
 
-## Safety rules
+## Contributing
 
-- Before anything is moved, replaced or restored, a ZIP backup is created and checked for completeness.
-- Folders are copied and verified first. Then the original is moved aside and the junction is created, and only
-  then is the original deleted. If the junction fails, everything is rolled back.
-- Nothing is moved while a known slicer is running. For custom folders this works if you picked the program's
-  EXE when adding the folder; otherwise close the program yourself.
-- On a pull conflict the rebase is aborted and nothing is overwritten.
-- Credentials are handled only by the Git Credential Manager.
-
-## Uninstall
-
-Via *Settings → Apps*. This removes the program only: the junctions stay and the slicers keep working. If you want
-the folders back at their original location, run **Restore** **first**.
-
----
-
-## Development
-
-### Requirements
-
-- Windows 10/11 (x64)
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [Git for Windows](https://git-scm.com/download/win) (also needed by the tests)
-- [Inno Setup 6](https://jrsoftware.org/isdl.php) (only for the installer)
-
-With winget: `winget install Microsoft.DotNet.SDK.8 Git.Git JRSoftware.InnoSetup`
-
-### Build
-
-```powershell
-.\build.ps1                    # tests, single-file EXE, installer
-.\build.ps1 -SkipInstaller     # only publish\SlicerSync.exe
-.\build.ps1 -Version 1.1.0
-```
-
-Output:
-
-- `publish\SlicerSync.exe`: self-contained single file (win-x64, .NET runtime included)
-- `dist\SlicerSync-Setup-<version>.exe`: installer
-
-The build queries the current Git for Windows version including its SHA-256 from GitHub. Without internet access
-the values in `installer\SlicerSync.iss` are used.
-
-Single steps by hand:
-
-```powershell
-dotnet test
-dotnet publish src\SlicerSync.App -c Release -o publish
-& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\SlicerSync.iss
-```
-
-The app icon (`assets\SlicerSync.ico`) is generated by `tools\make-icon.ps1`.
-
-### Releases
-
-GitHub Actions runs the tests on every push (`.github/workflows/ci.yml`). Pushing a tag like `v1.1.0` builds the
-installer and publishes a GitHub release (`.github/workflows/release.yml`). Update `CHANGELOG.md` before tagging.
-
-### Project structure
-
-```
-src/SlicerSync.Core/        Logic without UI (covered by tests)
-  Config/                   AppSettings, SettingsStore (JSON)
-  Git/                      GitRunner (git.exe), GitRepository, GitLocator
-  FileSystem/               Junction, BackupService (ZIP), DirectoryCopy
-  Slicers/                  SlicerCatalog, SlicerDetector, ProcessGuard, RepoManifest
-  Setup/                    SetupService: new setup, second PC, add/remove folders, restore
-  Sync/                     SyncService, SyncScheduler (+ Debouncer), CommitMessage
-  History/                  HistoryService (history, restore a file)
-  Hosting/                  RemoteCreator, GitHubClient, GitCredential
-  Loc.cs                    English/German texts
-src/SlicerSync.App/         WinForms tray app
-  TrayContext.cs            icon, menu, notifications, scheduling
-  Forms/                    SetupWizardForm, SettingsForm, HistoryForm, CreateRemoteForm, CustomFolderForm
-tests/SlicerSync.Core.Tests xUnit; simulates several PCs with temporary folders, a local bare
-                            repository as remote and an isolated Git configuration
-installer/SlicerSync.iss    Inno Setup script (downloads Git if needed)
-```
-
-The tests never touch real profile or settings folders: all paths are injected via `AppPaths`. The global Git
-configuration is isolated with `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_NOSYSTEM`, and the GitHub API is simulated.
-
-### Adding another slicer
-
-Add a `SlicerDefinition` to `src/SlicerSync.Core/Slicers/SlicerCatalog.cs`: AppData folder, layout (`UserSets`
-like Orca or `Flat` like PrusaSlicer), profile subfolders, executable path and process names. Detection, the
-running-slicer check and the second-PC mapping then work automatically.
-
-### Translations
-
-Every visible text is written as an English/German pair next to where it is used: `Loc.T("English", "Deutsch")`.
-
-### Commit message placeholders
-
-`{date}` `{time}` `{computer}` `{user}` `{count}` (German names like `{datum}` work too). Default:
-`Profile sync {date} {time} from {computer} ({count} files)`
+Bug reports, ideas and pull requests are welcome – in English or German. See [CONTRIBUTING.md](CONTRIBUTING.md) for
+how to build, test and add support for another slicer. Changes are listed in the [changelog](CHANGELOG.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+[MIT](LICENSE)
