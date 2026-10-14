@@ -36,6 +36,7 @@ once with a wizard – no command line, no Git knowledge needed.
 - **Creates the repository for you** on GitHub (private) or GitLab, right from the wizard.
 - **Safe:** a verified ZIP backup before every change, nothing is overwritten on conflicts, undo at any time.
 - **No passwords stored:** sign-in is handled by the Git Credential Manager in Windows.
+- **Updates itself:** new versions are downloaded from GitHub, checksum-verified and installed automatically.
 - **English and German** user interface.
 
 ## Download and install
@@ -135,6 +136,18 @@ To restore from such a copy, run the wizard as **Second PC** with the `.git` fol
   <img src="docs/images/settings-sync.en.png" width="420" alt="Settings: sync">
 </p>
 
+### Updates
+
+SlicerSync checks for a newer release on start and once a day. It downloads it from this repository's releases,
+verifies the SHA-256 checksum published by GitHub, waits until no sync is running and installs it:
+
+- **Installed version:** the new installer runs silently. Windows asks for permission once; SlicerSync restarts
+  afterwards.
+- **Portable version:** the EXE is replaced and SlicerSync restarts.
+
+Turn it off or switch to "notify only" under **Settings → General**. The tray menu has **Check for updates**, and
+**Install update …** when an update is waiting. Nothing but the update request itself is sent.
+
 ### Orca Slicer and Bambu Studio accounts
 
 These slicers keep separate profiles per signed-in account (folder `default` without sign-in, otherwise your user ID).
@@ -211,7 +224,8 @@ USB drive or cloud folder. You can also use a bare repository on a network share
 <summary><b>Does SlicerSync send my data anywhere else?</b></summary>
 
 No. Your profiles only go to the repository and backup locations you configure. SlicerSync has no server, no
-telemetry and stores no passwords.
+telemetry and stores no passwords. The only other connection is the update check, which asks GitHub for the latest
+release of SlicerSync (can be turned off under Settings → General).
 </details>
 
 ## Where things are stored

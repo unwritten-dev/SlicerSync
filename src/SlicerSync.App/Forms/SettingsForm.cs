@@ -56,6 +56,8 @@ public sealed class SettingsForm : Form
     private readonly CheckBox _autostart = new() { Text = Loc.T("Start with Windows", "Mit Windows starten"), AutoSize = true };
     private readonly CheckBox _notifySuccess = new() { Text = Loc.T("Notify after a successful backup", "Benachrichtigung bei erfolgreicher Sicherung"), AutoSize = true };
     private readonly CheckBox _notifyError = new() { Text = Loc.T("Notify on errors and conflicts", "Benachrichtigung bei Fehlern und Konflikten"), AutoSize = true };
+    private readonly CheckBox _checkUpdates = new() { Text = Loc.T("Check for updates (on start and once a day)", "Nach Updates suchen (beim Start und einmal täglich)"), AutoSize = true };
+    private readonly CheckBox _autoUpdate = new() { Text = Loc.T("Install updates automatically", "Updates automatisch installieren"), AutoSize = true, Margin = new Padding(20, 3, 3, 3) };
     private readonly TextBox _template = new();
     private readonly Label _templatePreview = Ui.Text("");
     private readonly TextBox _gitPath = new();
@@ -223,6 +225,16 @@ public sealed class SettingsForm : Form
                 "Windows hat den Autostart von SlicerSync ausgeschaltet. Wieder einschalten unter Task-Manager → Autostart.")));
         col.Controls.Add(_notifySuccess);
         col.Controls.Add(_notifyError);
+        col.Controls.Add(_checkUpdates);
+        col.Controls.Add(_autoUpdate);
+        col.Controls.Add(Ui.Text(Loc.T(
+            $"Version {Updater.CurrentVersion}. " + (Updater.IsPortable
+                ? "Portable version: an update replaces the EXE and restarts SlicerSync."
+                : "An update runs the new installer; Windows asks for permission once."),
+            $"Version {Updater.CurrentVersion}. " + (Updater.IsPortable
+                ? "Portable Version: Ein Update ersetzt die EXE und startet SlicerSync neu."
+                : "Ein Update startet den neuen Installer; Windows fragt einmal um Erlaubnis."))));
+        _checkUpdates.CheckedChanged += (_, _) => _autoUpdate.Enabled = _checkUpdates.Checked;
         col.Controls.Add(new Label { Height = 8 });
         col.Controls.Add(Ui.Text(Loc.T("Commit message template:", "Vorlage für die Commit-Nachricht:"), bold: true));
         _template.Width = 540;
@@ -279,6 +291,9 @@ public sealed class SettingsForm : Form
         _autostart.Checked = _work.Autostart;
         _notifySuccess.Checked = _work.NotifyOnSuccess;
         _notifyError.Checked = _work.NotifyOnError;
+        _checkUpdates.Checked = _work.CheckForUpdates;
+        _autoUpdate.Checked = _work.InstallUpdatesAutomatically;
+        _autoUpdate.Enabled = _work.CheckForUpdates;
         _template.Text = string.IsNullOrWhiteSpace(_work.CommitMessageTemplate) ? CommitMessage.DefaultTemplate : _work.CommitMessageTemplate;
         _gitPath.Text = _work.GitPath;
         foreach (var location in _work.BackupLocations)
@@ -321,6 +336,8 @@ public sealed class SettingsForm : Form
         _work.Autostart = _autostart.Checked;
         _work.NotifyOnSuccess = _notifySuccess.Checked;
         _work.NotifyOnError = _notifyError.Checked;
+        _work.CheckForUpdates = _checkUpdates.Checked;
+        _work.InstallUpdatesAutomatically = _autoUpdate.Checked;
         // Store the default as empty, so it follows the language.
         var template = _template.Text.Trim();
         _work.CommitMessageTemplate = template.Length == 0 || template == CommitMessage.DefaultTemplate ? "" : template;

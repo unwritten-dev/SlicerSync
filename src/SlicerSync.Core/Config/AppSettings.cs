@@ -93,6 +93,12 @@ public sealed class AppSettings
     public bool NotifyOnSuccess { get; set; } = true;
     public bool NotifyOnError { get; set; } = true;
 
+    /// <summary>Check GitHub for a newer version on start and once a day.</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
+    /// <summary>Install a newer version automatically (otherwise only notify).</summary>
+    public bool InstallUpdatesAutomatically { get; set; } = true;
+
     /// <summary>Commit message template. Empty = default of the current language.</summary>
     public string CommitMessageTemplate { get; set; } = "";
 

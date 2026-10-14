@@ -93,6 +93,8 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\SlicerSync.exe"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent runasoriginaluser
+; Automatic update (started silently by SlicerSync): start the new version again afterwards.
+Filename: "{app}\SlicerSync.exe"; Flags: nowait runasoriginaluser; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/IM SlicerSync.exe /F"; Flags: runhidden; RunOnceId: "StopSlicerSync"

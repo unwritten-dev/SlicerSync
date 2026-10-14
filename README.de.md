@@ -36,6 +36,7 @@ zwischen deinen PCs abgeglichen. Einmal mit dem Assistenten einrichten – ohne 
 - **Legt das Repository für dich an:** auf GitHub (privat) oder GitLab, direkt aus dem Assistenten.
 - **Sicher:** geprüfte ZIP-Sicherung vor jeder Änderung, bei Konflikten wird nichts überschrieben, jederzeit rückgängig.
 - **Keine gespeicherten Passwörter:** Die Anmeldung übernimmt der Git Credential Manager von Windows.
+- **Aktualisiert sich selbst:** Neue Versionen werden von GitHub geladen, per Prüfsumme kontrolliert und automatisch installiert.
 - **Oberfläche auf Englisch und Deutsch.**
 
 ## Download und Installation
@@ -139,6 +140,19 @@ denselben Ort nutzen. Nicht erreichbare Orte erzeugen nur einen Hinweis. Zum Wie
   <img src="docs/images/settings-sync.de.png" width="420" alt="Einstellungen: Synchronisation">
 </p>
 
+### Updates
+
+SlicerSync sucht beim Start und einmal täglich nach einer neueren Version. Es lädt sie aus den Releases dieses
+Repositorys, prüft die von GitHub veröffentlichte SHA-256-Prüfsumme, wartet, bis kein Sync läuft, und installiert sie:
+
+- **Installierte Version:** Der neue Installer läuft still. Windows fragt einmal um Erlaubnis; danach startet
+  SlicerSync neu.
+- **Portable Version:** Die EXE wird ersetzt und SlicerSync neu gestartet.
+
+Abschalten oder auf „nur benachrichtigen“ stellen unter **Einstellungen → Allgemein**. Im Tray-Menü gibt es **Nach
+Updates suchen** und, wenn ein Update wartet, **Update … installieren**. Außer der Update-Anfrage selbst wird nichts
+übertragen.
+
 ### Konten bei Orca Slicer und Bambu Studio
 
 Diese Slicer führen pro angemeldetem Konto eigene Profile (Ordner `default` ohne Anmeldung, sonst deine Nutzer-ID).
@@ -219,7 +233,8 @@ USB-Platte oder in einem Cloud-Ordner. Als Remote-URL geht auch ein Repository a
 <summary><b>Schickt SlicerSync meine Daten noch woandershin?</b></summary>
 
 Nein. Deine Profile gehen nur in das Repository und an die Sicherungsorte, die du einstellst. SlicerSync hat keinen
-Server, keine Telemetrie und speichert keine Passwörter.
+Server, keine Telemetrie und speichert keine Passwörter. Die einzige weitere Verbindung ist die Update-Prüfung, die bei
+GitHub nach dem neuesten SlicerSync-Release fragt (abschaltbar unter Einstellungen → Allgemein).
 </details>
 
 ## Speicherorte

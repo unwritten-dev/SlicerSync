@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.8
+
+- New: **automatic updates**. SlicerSync checks GitHub for a newer release on start and once a day, downloads it,
+  verifies its SHA-256 checksum and installs it when no sync is running. The installed version runs the new
+  installer silently (Windows asks for permission once) and restarts; the portable version replaces its EXE and
+  restarts. Settings → General: "Check for updates" and "Install updates automatically" (both on by default).
+  Tray menu: "Check for updates", and "Install update …" when one is waiting.
+- Versions up to 1.0.7 cannot update themselves: install 1.0.8 once by hand.
+
 ## 1.0.7
 
 - Setup wizard: slicers that were not found are listed in one line, so the page no longer cuts off the

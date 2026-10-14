@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using SlicerSync.Core;
 
 namespace SlicerSync.App;
@@ -53,7 +54,16 @@ static class Program
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             services.Log.Error(Loc.T("Unexpected error (background)", "Unerwarteter Fehler (Hintergrund)"), e.ExceptionObject as Exception);
 
-        Application.Run(new TrayContext(services, autostarted));
+        var tray = new TrayContext(services, autostarted);
+        Application.Run(tray);
         services.Log.Info(Loc.T("SlicerSync exited.", "SlicerSync beendet."));
+
+        // Portable update: start the new EXE only after releasing the single-instance lock.
+        if (tray.RestartExe is { } exe)
+        {
+            mutex.ReleaseMutex();
+            mutex.Dispose();
+            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
+        }
     }
 }

@@ -24,6 +24,7 @@ public sealed class TrayContext : ApplicationContext
     private SyncResult? _lastResult;
     private TrayState _state = TrayState.NotConfigured;
     private string _detail = "";
+    private readonly Updater _updater;
 
     public TrayContext(AppServices services, bool autostarted)
     {
@@ -31,6 +32,17 @@ public sealed class TrayContext : ApplicationContext
         // Force the window handle: BeginInvoke on _ui is used from background threads.
         _ = _ui.Handle;
         _scheduler = new SyncScheduler(() => _services.Sync?.Sync(), services.Log);
+
+        _updater = new Updater(services);
+        _updater.StateChanged += () => _ui.BeginInvoke(BuildMenu);
+        _updater.Notify += (text, isError) => _ui.BeginInvoke(() =>
+            _tray.ShowBalloonTip(isError ? 10000 : 5000, Ui.Title, text, isError ? ToolTipIcon.Error : ToolTipIcon.Info));
+        _updater.ExitRequested += restart => _ui.BeginInvoke(() =>
+        {
+            RestartExe = restart;
+            ExitThread();
+        });
+        _updater.Start();
 
         _tray.DoubleClick += (_, _) => ShowSingle(() => new HistoryForm(_services));
         _tray.Visible = true;
@@ -45,11 +57,21 @@ public sealed class TrayContext : ApplicationContext
             Task.Delay(TimeSpan.FromSeconds(autostarted ? 20 : 3)).ContinueWith(_ => TriggerSync(manual: false));
     }
 
+    /// <summary>After exit, start this EXE (set by a portable update).</summary>
+    public string? RestartExe { get; private set; }
+
     /// <summary>Builds the context menu in the current language.</summary>
     private void BuildMenu()
     {
         var old = _tray.ContextMenuStrip;
         var menu = new ContextMenuStrip();
+        if (_updater.Available is { } update)
+        {
+            menu.Items.Add(new ToolStripMenuItem(
+                Loc.T($"Install update {update.Version}", $"Update {update.Version} installieren"), null,
+                async (_, _) => await _updater.InstallAsync()) { Font = new Font(menu.Font, FontStyle.Bold) });
+            menu.Items.Add(new ToolStripSeparator());
+        }
         _status = new ToolStripMenuItem { Enabled = false };
         _syncNow = new ToolStripMenuItem(Loc.T("Sync now", "Jetzt synchronisieren"), null, (_, _) => TriggerSync(manual: true));
         _history = new ToolStripMenuItem(Loc.T("History…", "Verlauf…"), null, (_, _) => ShowSingle(() => new HistoryForm(_services)));
@@ -71,6 +93,7 @@ public sealed class TrayContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(Loc.T("Setup wizard…", "Einrichtungsassistent…"), null, (_, _) => ShowWizard());
         menu.Items.Add(_uninstall);
+        menu.Items.Add(Loc.T("Check for updates", "Nach Updates suchen"), null, async (_, _) => await _updater.CheckAsync(manual: true));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(Loc.T("Exit", "Beenden"), null, (_, _) => ExitThread());
         menu.Opening += (_, _) => UpdateMenu();
@@ -287,6 +310,7 @@ public sealed class TrayContext : ApplicationContext
 
     protected override void ExitThreadCore()
     {
+        _updater.Dispose();
         _scheduler.Dispose();
         _tray.Visible = false;
         _tray.ContextMenuStrip?.Dispose();
