@@ -96,6 +96,12 @@ public sealed class AppSettings
     /// <summary>Commit message template. Empty = default of the current language.</summary>
     public string CommitMessageTemplate { get; set; } = "";
 
+    /// <summary>
+    /// Additional backup locations (NAS, USB drive, cloud folder). Each sync also pushes the complete
+    /// history to a repository of this PC in every location.
+    /// </summary>
+    public List<string> BackupLocations { get; set; } = new();
+
     /// <summary>Optional fixed path to git.exe. Empty = locate automatically.</summary>
     public string GitPath { get; set; } = "";
 

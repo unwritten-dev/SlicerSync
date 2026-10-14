@@ -1,4 +1,4 @@
-using SlicerSync.Core;
+﻿using SlicerSync.Core;
 using SlicerSync.Core.Config;
 using SlicerSync.Core.Git;
 using SlicerSync.Core.Setup;
@@ -59,6 +59,7 @@ public sealed class SettingsForm : Form
     private readonly TextBox _template = new();
     private readonly Label _templatePreview = Ui.Text("");
     private readonly TextBox _gitPath = new();
+    private readonly ListBox _backupLocations = new() { Width = 540, Height = 120, IntegralHeight = false, HorizontalScrollbar = true };
 
     public SettingsForm(AppServices services)
     {
@@ -70,6 +71,7 @@ public sealed class SettingsForm : Form
         var tabs = new TabControl { Dock = DockStyle.Fill };
         tabs.TabPages.Add(ProfilesTab());
         tabs.TabPages.Add(RepositoryTab());
+        tabs.TabPages.Add(BackupLocationsTab());
         tabs.TabPages.Add(SyncTab());
         tabs.TabPages.Add(GeneralTab());
 
@@ -129,6 +131,54 @@ public sealed class SettingsForm : Form
             "Credentials are handled by the Git Credential Manager; SlicerSync does not store passwords or tokens.",
             "Zugangsdaten verwaltet der Git Credential Manager; SlicerSync speichert keine Passwörter oder Tokens.")));
         return new TabPage("Repository") { Controls = { col } };
+    }
+
+    private TabPage BackupLocationsTab()
+    {
+        var col = Ui.Column();
+        col.Controls.Add(Ui.Text(Loc.T("Additional backup locations:", "Zusätzliche Sicherungsorte:"), bold: true));
+        col.Controls.Add(Ui.Text(Loc.T(
+            "Besides the remote repository, every sync stores a complete copy with history in these folders – for example " +
+            "on a NAS, a USB drive or in a cloud folder (OneDrive, Dropbox, Google Drive). This also works without internet.",
+            "Neben dem Remote-Repository legt jeder Sync eine vollständige Kopie mit Verlauf in diesen Ordnern ab – z. B. " +
+            "auf einem NAS, einer USB-Platte oder in einem Cloud-Ordner (OneDrive, Dropbox, Google Drive). Das klappt auch ohne Internet.")));
+        col.Controls.Add(_backupLocations);
+        col.Controls.Add(Ui.Row(
+            Ui.Button(Loc.T("Add…", "Hinzufügen…"), (_, _) => AddBackupLocation()),
+            Ui.Button(Loc.T("Remove", "Entfernen"), (_, _) =>
+            {
+                if (_backupLocations.SelectedItem != null)
+                    _backupLocations.Items.Remove(_backupLocations.SelectedItem);
+            }),
+            Ui.Button(Loc.T("Open", "Öffnen"), (_, _) =>
+            {
+                if (_backupLocations.SelectedItem is string location)
+                    Ui.Open(location);
+            })));
+        col.Controls.Add(Ui.Text(Loc.T(
+            $"Each PC writes to its own repository there (SlicerProfiles-<computer>.git), so several PCs can use the same " +
+            "location. If a location is not reachable (drive unplugged, NAS off), SlicerSync shows a note and catches up on " +
+            "the next sync. To restore, use the setup wizard (\"Second PC\") with the .git folder as remote URL.",
+            $"Jeder PC schreibt dort in ein eigenes Repository (SlicerProfiles-<Rechner>.git), mehrere PCs können also denselben " +
+            "Ort nutzen. Ist ein Ort nicht erreichbar (Platte abgesteckt, NAS aus), zeigt SlicerSync einen Hinweis und holt es beim " +
+            "nächsten Sync nach. Zum Wiederherstellen den Assistenten („Zweiter PC“) mit dem .git-Ordner als Remote-URL verwenden.")));
+        return new TabPage(Loc.T("Backup locations", "Sicherungsorte")) { Controls = { col } };
+    }
+
+    private void AddBackupLocation()
+    {
+        using var dlg = new FolderBrowserDialog { ShowNewFolderButton = true };
+        if (dlg.ShowDialog(this) != DialogResult.OK)
+            return;
+        var location = dlg.SelectedPath;
+        if (BackupLocations.Validate(location, _work.RepoPath) is { } error)
+        {
+            Ui.Error(this, error);
+            return;
+        }
+        if (_backupLocations.Items.Cast<string>().Any(l => string.Equals(l, location, StringComparison.OrdinalIgnoreCase)))
+            return;
+        _backupLocations.Items.Add(location);
     }
 
     private TabPage SyncTab()
@@ -231,6 +281,8 @@ public sealed class SettingsForm : Form
         _notifyError.Checked = _work.NotifyOnError;
         _template.Text = string.IsNullOrWhiteSpace(_work.CommitMessageTemplate) ? CommitMessage.DefaultTemplate : _work.CommitMessageTemplate;
         _gitPath.Text = _work.GitPath;
+        foreach (var location in _work.BackupLocations)
+            _backupLocations.Items.Add(location);
     }
 
     /// <param name="changedIndex">Item whose check state is about to change (from ItemCheck), or -1.</param>
@@ -273,6 +325,7 @@ public sealed class SettingsForm : Form
         var template = _template.Text.Trim();
         _work.CommitMessageTemplate = template.Length == 0 || template == CommitMessage.DefaultTemplate ? "" : template;
         _work.GitPath = gitPath;
+        _work.BackupLocations = _backupLocations.Items.Cast<string>().ToList();
 
         var items = _folders.Items.Cast<FolderItem>().ToList();
         var toAdd = items.Where((it, i) => _folders.GetItemChecked(i) && !it.Active).Select(it => it.Mapping).ToList();

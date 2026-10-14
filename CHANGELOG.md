@@ -2,6 +2,10 @@
 
 ## 1.0.6
 
+- New: **additional backup locations** (Settings → Backup locations). Besides the remote repository, every sync
+  stores a complete copy with history in folders on a NAS, a USB drive or a cloud folder (OneDrive, Dropbox,
+  Google Drive for desktop) – also without internet. Each PC writes to its own repository there
+  (`SlicerProfiles-<computer>.git`). Unreachable locations only show a note and are caught up on the next sync.
 - Fixed: after "Restore (undo setup)" and setting up again, autostart stayed off. Setting up now switches
   autostart back on (it can still be turned off in Settings → General).
 

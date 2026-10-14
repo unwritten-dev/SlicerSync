@@ -98,6 +98,17 @@ Set under **Settings → Sync**:
 In every mode you also get a sync on startup (can be turned off) to fetch changes from your other PCs, and
 **Sync now** in the tray menu. A commit is only made when files actually changed.
 
+## Additional backup locations
+
+Under **Settings → Backup locations** you can add folders on a NAS (`\\nas\backup`), a USB drive or a cloud folder
+(OneDrive, Dropbox, or Google Drive via *Google Drive for desktop*, e.g. `G:\My Drive\Backups`). Every sync then also
+stores a complete copy with history there – even without internet.
+
+- Each PC writes to its own repository in the location (`SlicerProfiles-<computer>.git`), so several PCs can share
+  one NAS folder without getting in each other's way.
+- If a location is not reachable (drive unplugged, NAS off), you only get a note; the next sync catches up.
+- To restore, run the setup wizard as **Second PC** and enter the `.git` folder as remote URL, or use any Git tool.
+
 ## Tray icon and menu
 
 The dot on the icon shows the state: **green** = OK, **yellow** = syncing, **red** = error or conflict,

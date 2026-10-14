@@ -175,6 +175,17 @@ public sealed class GitRepository
 
     public void Push(string branch) => _git.RunChecked(Path, "push", "--set-upstream", RemoteName, branch);
 
+    /// <summary>Pushes the current HEAD to a branch of another repository (e.g. a backup location).</summary>
+    public void PushTo(string url, string branch, bool force)
+    {
+        var args = new List<string> { "push", "--quiet" };
+        if (force)
+            args.Add("--force");
+        args.Add(url);
+        args.Add($"HEAD:refs/heads/{branch}");
+        _git.RunChecked(Path, args.ToArray());
+    }
+
     public IReadOnlyList<CommitInfo> Log(int maxCount, string? path = null)
     {
         if (HeadHash() == null)

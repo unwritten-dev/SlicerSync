@@ -27,6 +27,9 @@ public sealed class SyncResult
     public bool Pushed { get; init; }
     public IReadOnlyList<string> Warnings { get; init; } = Array.Empty<string>();
 
+    /// <summary>Hints that are not errors, e.g. a backup location that is currently not reachable.</summary>
+    public List<string> Notes { get; } = new();
+
     public bool IsProblem => Outcome is SyncOutcome.Conflict or SyncOutcome.Failed || Warnings.Count > 0;
 }
 
@@ -125,6 +128,24 @@ public sealed class SyncService
             _log.Info($"Commit: {message}");
         }
 
+        // 2.–3. Exchange with the remote; afterwards always update the additional backup locations,
+        // even if the remote is not reachable (e.g. no internet).
+        SyncResult result;
+        var notes = new List<string>();
+        try
+        {
+            result = SyncWithRemote(s, repo, staged, warnings);
+        }
+        finally
+        {
+            notes = BackupLocations.PushAll(_git, repo, s.BackupLocations, s.Branch, _log);
+        }
+        result.Notes.AddRange(notes);
+        return result;
+    }
+
+    private SyncResult SyncWithRemote(AppSettings s, GitRepository repo, IReadOnlyList<string> staged, List<string> warnings)
+    {
         var hasRemote = !string.IsNullOrWhiteSpace(s.RemoteUrl);
         if (!hasRemote)
         {

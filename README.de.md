@@ -107,6 +107,19 @@ Außerdem gibt es in jedem Modus einen Sync beim Start (abschaltbar), damit Änd
 werden, und den Eintrag **„Jetzt synchronisieren“** im Tray-Menü. Es wird nur committet, wenn sich tatsächlich
 Dateien geändert haben.
 
+## Zusätzliche Sicherungsorte
+
+Unter **Einstellungen → Sicherungsorte** kannst du Ordner auf einem NAS (`\\nas\backup`), einer USB-Platte oder in
+einem Cloud-Ordner hinzufügen (OneDrive, Dropbox oder Google Drive über *Google Drive für den Desktop*, z. B.
+`G:\Meine Ablage\Backups`). Jeder Sync legt dort dann zusätzlich eine vollständige Kopie mit Verlauf ab – auch ohne
+Internet.
+
+- Jeder PC schreibt dort in ein eigenes Repository (`SlicerProfiles-<Rechner>.git`). Mehrere PCs können also
+  denselben NAS-Ordner nutzen, ohne sich in die Quere zu kommen.
+- Ist ein Ort nicht erreichbar (Platte abgesteckt, NAS aus), gibt es nur einen Hinweis; der nächste Sync holt es nach.
+- Zum Wiederherstellen den Assistenten als **Zweiter PC** ausführen und den `.git`-Ordner als Remote-URL eintragen,
+  oder ein beliebiges Git-Programm verwenden.
+
 ## Tray-Icon und Menü
 
 Der Punkt am Icon zeigt den Zustand: **grün** = OK, **gelb** = Sync läuft, **rot** = Fehler oder Konflikt,

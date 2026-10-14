@@ -119,6 +119,8 @@ public sealed class TrayContext : ApplicationContext
         var text = result.Message;
         if (result.Warnings.Count > 0)
             text = string.Join("\n", result.Warnings.Prepend(text));
+        if (result.Notes.Count > 0)
+            text = string.Join("\n", result.Notes.Prepend(text));
 
         if (result.IsProblem)
         {
