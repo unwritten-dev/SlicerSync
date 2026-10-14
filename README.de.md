@@ -10,10 +10,10 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/unwritten-dev/SlicerSync?label=download" alt="Neueste Version"></a>
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/unwritten-dev/SlicerSync?label=download&cacheSeconds=3600" alt="Neueste Version"></a>
   <a href="../../actions/workflows/ci.yml"><img src="https://github.com/unwritten-dev/SlicerSync/actions/workflows/ci.yml/badge.svg" alt="Build-Status"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-blue" alt="Windows 10 | 11">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/unwritten-dev/SlicerSync" alt="MIT-Lizenz"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/unwritten-dev/SlicerSync?cacheSeconds=3600" alt="MIT-Lizenz"></a>
 </p>
 
 SlicerSync ist eine kleine Windows-App für den Infobereich der Taskleiste. Sie sichert die Drucker-, Filament- und

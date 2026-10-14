@@ -10,10 +10,10 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/unwritten-dev/SlicerSync?label=download" alt="Latest release"></a>
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/unwritten-dev/SlicerSync?label=download&cacheSeconds=3600" alt="Latest release"></a>
   <a href="../../actions/workflows/ci.yml"><img src="https://github.com/unwritten-dev/SlicerSync/actions/workflows/ci.yml/badge.svg" alt="Build status"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-blue" alt="Windows 10 | 11">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/unwritten-dev/SlicerSync" alt="MIT license"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/unwritten-dev/SlicerSync?cacheSeconds=3600" alt="MIT license"></a>
 </p>
 
 SlicerSync is a small Windows tray app. It backs up the printer, filament and process profiles you create in your
